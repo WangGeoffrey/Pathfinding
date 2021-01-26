@@ -2,10 +2,13 @@ import pygame
 import math
 from queue import PriorityQueue
 
+pygame.init()
 WIDTH = 600
+SIDE_BAR = 100
 SIZE = 50
-WIN = pygame.display.set_mode((WIDTH, WIDTH))
-pygame.display.set_caption("A* Pathfinder")
+WIN = pygame.display.set_mode((WIDTH+SIDE_BAR, WIDTH))
+pygame.display.set_caption("Pathfinder")
+font = pygame.font.SysFont('Corbel', 15)
 
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -82,6 +85,30 @@ class Node:
         if valid_pos((x+1, y+1), grid) and (valid_pos((x+1, y), grid) or valid_pos((x, y+1), grid)):
             self.neighbours.append(grid[x+1][y+1])
 
+class Button:
+    def __init__(self, x_pos, y_pos, width, height, text):
+        self.x_pos = x_pos
+        self.y_pos = y_pos
+        self.width = width
+        self.height = height
+        self.color = WHITE
+        self.rect = pygame.Rect(x_pos, y_pos, width, height)
+        self.text = font.render(text, True, BLACK)
+        self.text_rect = self.text.get_rect(center=(x_pos + width//2, y_pos + height//2))
+
+    def get_rect(self):
+        return self.rect
+
+    def draw(self):
+        pygame.draw.rect(WIN, self.color, self.rect)
+        WIN.blit(self.text, self.text_rect)
+    
+    def selected(self):
+        self.color = GREY
+
+    def deselected(self):
+        self.color = WHITE
+
 def distance(current, end):
     x1, y1 = current.get_pos()
     x2, y2 = end.get_pos()
@@ -128,7 +155,7 @@ def show_path(came_from, current, grid):
         current.set_path()
         draw_grid(grid)
 
-def search(grid, start, end):
+def astar(grid, start, end):
     count = 0
     open = PriorityQueue()
     open.put((0, count, start))
@@ -172,6 +199,44 @@ def search(grid, start, end):
             if current != start:
                 current.set_closed()
     return False
+
+def dijkstra(grid, start, end):
+    count = 0
+    open = PriorityQueue()
+    open.put((0, count, start))
+    open_hash = {start}
+    came_from = {}
+    paused = False
+    while not open.empty():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    if paused:
+                        paused = False
+                    else:
+                        paused = True
+        if not paused:
+            current_cost, dummy, current = open.get()
+            if current == end:
+                show_path(came_from, current, grid)
+                end.set_end()
+                return True
+            current.update_neighbours(grid)
+            for neighbour in current.neighbours:
+                if neighbour not in open_hash:
+                    new_cost = current_cost + 10 + 4*((abs(current.x_pos - neighbour.x_pos) + abs(current.y_pos - neighbour.y_pos) + 1)%2)
+                    count += 1
+                    open.put((new_cost, count, neighbour))
+                    open_hash.add(neighbour)
+                    came_from[neighbour] = current
+                    if neighbour != end:
+                        neighbour.set_open()
+            draw_grid(grid)
+            if current != start:
+                current.set_closed()
+    return False
      
 def main():
     WIN.fill(WHITE)
@@ -180,6 +245,17 @@ def main():
     start.set_start()
     end = grid[SIZE - 1][SIZE - 1]
     end.set_end()
+    search = 0
+    text = font.render('Algorithm' , True , BLACK)
+    text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, SIDE_BAR//4))
+    WIN.blit(text, text_rect)
+    pygame.draw.line(WIN, BLACK, (WIDTH, SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, SIDE_BAR//2 - 2), 2)
+    buttons = []
+    buttons.append(Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'))
+    buttons.append(Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'))
+    buttons[0].selected()
+    for button in buttons:
+        button.draw()
     change_start = False
     change_end = False
     make_wall = False
@@ -191,6 +267,17 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.MOUSEBUTTONUP:
+                if not (change_start or change_end or make_wall):
+                    if WIDTH <= pos[0]:
+                        for button in buttons:
+                            if button.get_rect().collidepoint(event.pos):
+                                temp = search
+                                search = buttons.index(button)
+                                if temp != search:
+                                    buttons[search].selected()
+                                    buttons[temp].deselected()
+                                    buttons[search].draw()
+                                    buttons[temp].draw()
                 prev_color = WHITE
                 if change_start:
                     change_start = False
@@ -201,7 +288,9 @@ def main():
             if pygame.mouse.get_pressed()[0]:
                 pos = pygame.mouse.get_pos()
                 x, y = find_node(pos)
-                if change_start:
+                if WIDTH <= pos[0]:
+                    pass
+                elif change_start:
                     if not grid[x][y].is_end():
                         start.color = prev_color
                         start = grid[x][y]
@@ -225,9 +314,10 @@ def main():
             elif pygame.mouse.get_pressed()[2]:
                 pos = pygame.mouse.get_pos()
                 x, y = find_node(pos)
-                if not (start == grid[x][y] or end == grid[x][y]):
+                if WIDTH <= pos[0]:
+                    pass
+                elif not (start == grid[x][y] or end == grid[x][y]):
                     grid[x][y].set_default()
-
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     for row in grid:
@@ -236,7 +326,10 @@ def main():
                                 node.set_default()
                     start.set_start()
                     end.set_end()
-                    search(grid, start, end)
+                    if search:
+                        dijkstra(grid, start, end)
+                    else:
+                        astar(grid, start, end)
                     start.set_start()
                 elif event.key == pygame.K_c:
                     grid = make_grid()
