@@ -7,7 +7,7 @@ WIDTH = 600
 SIDE_BAR = 100
 SIZE = 50
 WIN = pygame.display.set_mode((WIDTH+SIDE_BAR, WIDTH))
-pygame.display.set_caption("Pathfinder")
+pygame.display.set_caption("Pathfinding Visualizer")
 font = pygame.font.SysFont('Corbel', 15)
 
 RED = (255, 0, 0)
