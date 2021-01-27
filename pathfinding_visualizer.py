@@ -1,6 +1,7 @@
 import pygame
 import math
 from queue import PriorityQueue
+from random import randint
 
 pygame.init()
 WIDTH = 600
@@ -237,6 +238,50 @@ def dijkstra(grid, start, end):
             if current != start:
                 current.set_closed()
     return False
+
+def maze_check(pos, grid):
+    x, y = pos
+    if 0 <= x and x < SIZE and 0 <= y and y < SIZE:
+        if grid[x][y].is_wall():
+            return False
+        else:
+            return True
+    return False
+
+def maze(current, start, end, grid):
+    draw_grid(grid)
+    pygame.display.update()
+    directions = {1, 2, 3, 4}
+    num = 0
+    x, y = current.get_pos()
+    while not len(directions) == 0:
+        while not num in directions:
+            num = randint(0, 4)
+        directions.remove(num)
+        if num == 1: #up
+            if valid_pos((x, y-1), grid):
+                if not (grid[x][y-1] == start or grid[x][y-1] == end):
+                    if maze_check((x-1, y-1), grid) and maze_check((x-1, y-2), grid) and maze_check((x, y-2), grid) and maze_check((x+1, y-2), grid) and maze_check((x+1, y-1), grid):
+                        grid[x][y-1].set_wall()
+                        maze(grid[x][y-1], start, end, grid)
+        elif num == 2:#right
+            if valid_pos((x+1, y), grid):
+                if not (grid[x+1][y] == start or grid[x+1][y] == end):
+                    if maze_check((x+1, y-1), grid) and maze_check((x+2, y-1), grid) and maze_check((x+2, y), grid) and maze_check((x+2, y+1), grid) and maze_check((x+1, y+1), grid):
+                        grid[x+1][y].set_wall()
+                        maze(grid[x+1][y], start, end, grid)
+        elif num == 3:#down
+            if valid_pos((x, y+1), grid):
+                if not (grid[x][y+1] == start or grid[x][y+1] == end):
+                    if maze_check((x-1, y+1), grid) and maze_check((x-1, y+2), grid) and maze_check((x, y+2), grid) and maze_check((x+1, y+2), grid) and maze_check((x+1, y+1), grid):
+                        grid[x][y+1].set_wall()
+                        maze(grid[x][y+1], start, end, grid)
+        elif num == 4:#left
+            if valid_pos((x-1, y), grid):
+                if not (grid[x-1][y] == start or grid[x-1][y] == end):
+                    if maze_check((x-1, y-1), grid) and maze_check((x-2, y-1), grid) and maze_check((x-2, y), grid) and maze_check((x-2, y+1), grid) and maze_check((x-1, y+1), grid):
+                        grid[x-1][y].set_wall()
+                        maze(grid[x-1][y], start, end, grid) 
      
 def main():
     WIN.fill(WHITE)
@@ -253,6 +298,7 @@ def main():
     buttons = []
     buttons.append(Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'))
     buttons.append(Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'))
+    buttons.append(Button(WIDTH+1, 3*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Maze'))
     buttons[0].selected()
     for button in buttons:
         button.draw()
@@ -271,13 +317,16 @@ def main():
                     if WIDTH <= pos[0]:
                         for button in buttons:
                             if button.get_rect().collidepoint(event.pos):
-                                temp = search
-                                search = buttons.index(button)
-                                if temp != search:
-                                    buttons[search].selected()
-                                    buttons[temp].deselected()
-                                    buttons[search].draw()
-                                    buttons[temp].draw()
+                                if buttons.index(button) == 2:
+                                    maze(grid[SIZE//2][SIZE//2], start, end, grid)
+                                else:
+                                    temp = search
+                                    search = buttons.index(button)
+                                    if temp != search:
+                                        buttons[search].selected()
+                                        buttons[temp].deselected()
+                                        buttons[search].draw()
+                                        buttons[temp].draw()
                 prev_color = WHITE
                 if change_start:
                     change_start = False
