@@ -15,6 +15,7 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
+ORANGE = (255, 165, 0)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREY = (128, 128, 128)
@@ -40,14 +41,23 @@ class Node:
     def is_end(self):
         return self.color == RED
 
+    def is_flag(self):
+        return self.color == ORANGE
+
     def is_wall(self):
         return self.color == GREY
+
+    def is_path(self):
+        return self.color == BLUE
 
     def set_start(self):
         self.color = GREEN
     
     def set_end(self):
         self.color = RED
+
+    def set_flag(self):
+        self.color = ORANGE
 
     def set_wall(self):
         self.color = GREY
@@ -153,7 +163,8 @@ def draw_grid(grid):
 def show_path(came_from, current, grid):
     while current in came_from:
         current = came_from[current]
-        current.set_path()
+        if not (current.is_start() or current.is_end() or current.is_flag()):
+            current.set_path()
         draw_grid(grid)
 
 def astar(grid, start, end):
@@ -182,7 +193,6 @@ def astar(grid, start, end):
             open_hash.remove(current)
             if current == end:
                 show_path(came_from, current, grid)
-                end.set_end()
                 return True
             current.update_neighbours(grid)
             for neighbour in current.neighbours:
@@ -195,9 +205,10 @@ def astar(grid, start, end):
                         count += 1
                         open.put((f_cost[neighbour], count, neighbour))
                         open_hash.add(neighbour)
-                        neighbour.set_open()
+                        if neighbour != end and not (neighbour.is_path() or neighbour.is_start() or neighbour.is_end() or neighbour.is_flag()):
+                            neighbour.set_open()
             draw_grid(grid)
-            if current != start:
+            if current != start and not (current.is_path() or current.is_start() or current.is_end() or current.is_flag()):
                 current.set_closed()
     return False
 
@@ -222,7 +233,6 @@ def dijkstra(grid, start, end):
             current_cost, dummy, current = open.get()
             if current == end:
                 show_path(came_from, current, grid)
-                end.set_end()
                 return True
             current.update_neighbours(grid)
             for neighbour in current.neighbours:
@@ -232,10 +242,10 @@ def dijkstra(grid, start, end):
                     open.put((new_cost, count, neighbour))
                     open_hash.add(neighbour)
                     came_from[neighbour] = current
-                    if neighbour != end:
+                    if neighbour != end and not (neighbour.is_path() or neighbour.is_start() or neighbour.is_end() or neighbour.is_flag()):
                         neighbour.set_open()
             draw_grid(grid)
-            if current != start:
+            if current != start and not (current.is_path() or current.is_start() or current.is_end() or current.is_flag()):
                 current.set_closed()
     return False
 
@@ -260,25 +270,25 @@ def maze(current, start, end, grid):
         directions.remove(num)
         if num == 1: #up
             if valid_pos((x, y-1), grid):
-                if not (grid[x][y-1] == start or grid[x][y-1] == end):
+                if not (grid[x][y-1] == start or grid[x][y-1] == end or grid[x][y-1].is_flag()):
                     if maze_check((x-1, y-1), grid) and maze_check((x-1, y-2), grid) and maze_check((x, y-2), grid) and maze_check((x+1, y-2), grid) and maze_check((x+1, y-1), grid):
                         grid[x][y-1].set_wall()
                         maze(grid[x][y-1], start, end, grid)
         elif num == 2:#right
             if valid_pos((x+1, y), grid):
-                if not (grid[x+1][y] == start or grid[x+1][y] == end):
+                if not (grid[x+1][y] == start or grid[x+1][y] == end or grid[x+1][y].is_flag()):
                     if maze_check((x+1, y-1), grid) and maze_check((x+2, y-1), grid) and maze_check((x+2, y), grid) and maze_check((x+2, y+1), grid) and maze_check((x+1, y+1), grid):
                         grid[x+1][y].set_wall()
                         maze(grid[x+1][y], start, end, grid)
         elif num == 3:#down
             if valid_pos((x, y+1), grid):
-                if not (grid[x][y+1] == start or grid[x][y+1] == end):
+                if not (grid[x][y+1] == start or grid[x][y+1] == end or grid[x][y+1].is_flag()):
                     if maze_check((x-1, y+1), grid) and maze_check((x-1, y+2), grid) and maze_check((x, y+2), grid) and maze_check((x+1, y+2), grid) and maze_check((x+1, y+1), grid):
                         grid[x][y+1].set_wall()
                         maze(grid[x][y+1], start, end, grid)
         elif num == 4:#left
             if valid_pos((x-1, y), grid):
-                if not (grid[x-1][y] == start or grid[x-1][y] == end):
+                if not (grid[x-1][y] == start or grid[x-1][y] == end or grid[x-1][y].is_flag()):
                     if maze_check((x-1, y-1), grid) and maze_check((x-2, y-1), grid) and maze_check((x-2, y), grid) and maze_check((x-2, y+1), grid) and maze_check((x-1, y+1), grid):
                         grid[x-1][y].set_wall()
                         maze(grid[x-1][y], start, end, grid) 
@@ -299,12 +309,15 @@ def main():
     buttons.append(Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'))
     buttons.append(Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'))
     buttons.append(Button(WIDTH+1, 3*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Maze'))
+    buttons.append(Button(WIDTH+1, 2*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Add Flag'))
     buttons[0].selected()
     for button in buttons:
         button.draw()
     change_start = False
     change_end = False
     make_wall = False
+    make_flag = False
+    flags = []
     running = True
     prev_color = WHITE
     while running:
@@ -319,14 +332,14 @@ def main():
                             if button.get_rect().collidepoint(event.pos):
                                 if buttons.index(button) == 2:
                                     maze(grid[SIZE//2][SIZE//2], start, end, grid)
+                                elif buttons.index(button) == 3:
+                                    if make_flag:
+                                        make_flag = False
+                                    else:
+                                        make_flag = True
                                 else:
                                     temp = search
                                     search = buttons.index(button)
-                                    if temp != search:
-                                        buttons[search].selected()
-                                        buttons[temp].deselected()
-                                        buttons[search].draw()
-                                        buttons[temp].draw()
                 prev_color = WHITE
                 if change_start:
                     change_start = False
@@ -351,6 +364,11 @@ def main():
                         end = grid[x][y]
                         prev_color = end.color
                         end.set_end()
+                elif make_flag:
+                    if not (grid[x][y].is_start() or grid[x][y].is_end() or grid[x][y].is_flag()):
+                        grid[x][y].set_flag()
+                        flags.append(grid[x][y])
+                        make_flag = False
                 elif start.get_pos() == (x, y) and not change_end:
                     if not make_wall:
                         change_start = True
@@ -359,7 +377,8 @@ def main():
                         change_end = True
                 else:
                     make_wall = True
-                    grid[x][y].set_wall()
+                    if not grid[x][y].is_flag():
+                        grid[x][y].set_wall()
             elif pygame.mouse.get_pressed()[2]:
                 pos = pygame.mouse.get_pos()
                 x, y = find_node(pos)
@@ -375,19 +394,32 @@ def main():
                                 node.set_default()
                     start.set_start()
                     end.set_end()
-                    if search:
-                        dijkstra(grid, start, end)
-                    else:
-                        astar(grid, start, end)
-                    start.set_start()
+                    for flag in flags:
+                        flag.set_flag()
+                    flags.append(end)
+                    prev = start
+                    for flag in flags:
+                        if search:
+                            dijkstra(grid, prev, flag)
+                        else:
+                            astar(grid, prev, flag)
+                        prev = flag
+                    flags.remove(end)
                 elif event.key == pygame.K_c:
                     grid = make_grid()
                     start = grid[start.x_pos][start.y_pos]
                     start.set_start()
                     end = grid[end.x_pos][end.y_pos]
                     end.set_end()
+                    flags.clear()
+        pos = pygame.mouse.get_pos()
+        for button in buttons:
+            if button.get_rect().collidepoint(pos) or buttons.index(button) == search:
+                button.selected()
+            else:
+                button.deselected()
+            button.draw()
+        pygame.draw.line(WIN, BLACK, (WIDTH, 3*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, 3*SIDE_BAR//2 - 2), 2)
     pygame.quit()
 
 main()
-
-    
