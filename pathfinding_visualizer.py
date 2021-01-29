@@ -184,10 +184,7 @@ def astar(grid, start, end):
                 pygame.quit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    if paused:
-                        paused = False
-                    else:
-                        paused = True
+                    paused = not paused
         if not paused:
             current = open.get()[2]
             open_hash.remove(current)
@@ -225,10 +222,7 @@ def dijkstra(grid, start, end):
                 pygame.quit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    if paused:
-                        paused = False
-                    else:
-                        paused = True
+                    paused = not paused
         if not paused:
             current_cost, dummy, current = open.get()
             if current == end:
@@ -252,10 +246,7 @@ def dijkstra(grid, start, end):
 def maze_check(pos, grid):
     x, y = pos
     if 0 <= x and x < SIZE and 0 <= y and y < SIZE:
-        if grid[x][y].is_wall():
-            return False
-        else:
-            return True
+        return not grid[x][y].is_wall()
     return False
 
 def maze(current, start, end, grid):
@@ -333,10 +324,7 @@ def main():
                                 if buttons.index(button) == 2:
                                     maze(grid[SIZE//2][SIZE//2], start, end, grid)
                                 elif buttons.index(button) == 3:
-                                    if make_flag:
-                                        make_flag = False
-                                    else:
-                                        make_flag = True
+                                    make_flag = not make_flag
                                 else:
                                     temp = search
                                     search = buttons.index(button)
@@ -385,6 +373,8 @@ def main():
                 if WIDTH <= pos[0]:
                     pass
                 elif not (start == grid[x][y] or end == grid[x][y]):
+                    if grid[x][y].is_flag():
+                        flags.remove(grid[x][y])
                     grid[x][y].set_default()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
@@ -414,7 +404,7 @@ def main():
                     flags.clear()
         pos = pygame.mouse.get_pos()
         for button in buttons:
-            if button.get_rect().collidepoint(pos) or buttons.index(button) == search:
+            if button.get_rect().collidepoint(pos) or buttons.index(button) == search or (buttons.index(button) == 3 and make_flag):
                 button.selected()
             else:
                 button.deselected()
