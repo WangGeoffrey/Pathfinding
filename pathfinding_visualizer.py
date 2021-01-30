@@ -44,6 +44,9 @@ class Node:
     def is_flag(self):
         return self.color == ORANGE
 
+    def is_destination(self):
+        return self.is_start() or self.is_end() or self.is_flag()
+
     def is_wall(self):
         return self.color == GREY
 
@@ -163,7 +166,7 @@ def draw_grid(grid):
 def show_path(came_from, current, grid):
     while current in came_from:
         current = came_from[current]
-        if not (current.is_start() or current.is_end() or current.is_flag()):
+        if not current.is_destination():
             current.set_path()
         draw_grid(grid)
 
@@ -202,10 +205,10 @@ def astar(grid, start, end):
                         count += 1
                         open.put((f_cost[neighbour], count, neighbour))
                         open_hash.add(neighbour)
-                        if neighbour != end and not (neighbour.is_path() or neighbour.is_start() or neighbour.is_end() or neighbour.is_flag()):
+                        if neighbour != end and not (neighbour.is_path() or neighbour.is_destination()):
                             neighbour.set_open()
             draw_grid(grid)
-            if current != start and not (current.is_path() or current.is_start() or current.is_end() or current.is_flag()):
+            if current != start and not (current.is_path() or current.is_destination()):
                 current.set_closed()
     return False
 
@@ -236,10 +239,10 @@ def dijkstra(grid, start, end):
                     open.put((new_cost, count, neighbour))
                     open_hash.add(neighbour)
                     came_from[neighbour] = current
-                    if neighbour != end and not (neighbour.is_path() or neighbour.is_start() or neighbour.is_end() or neighbour.is_flag()):
-                        neighbour.set_open()
+                    if neighbour != end and not (neighbour.is_path() or neighbour.is_destination()):
+                            neighbour.set_open()
             draw_grid(grid)
-            if current != start and not (current.is_path() or current.is_start() or current.is_end() or current.is_flag()):
+            if current != start and not (current.is_path() or current.is_destination()):
                 current.set_closed()
     return False
 
@@ -249,7 +252,7 @@ def maze_check(pos, grid):
         return not grid[x][y].is_wall()
     return False
 
-def maze(current, start, end, grid):
+def maze(current, grid):
     draw_grid(grid)
     pygame.display.update()
     directions = {1, 2, 3, 4}
@@ -261,28 +264,28 @@ def maze(current, start, end, grid):
         directions.remove(num)
         if num == 1: #up
             if valid_pos((x, y-1), grid):
-                if not (grid[x][y-1] == start or grid[x][y-1] == end or grid[x][y-1].is_flag()):
+                if not grid[x][y-1].is_destination():
                     if maze_check((x-1, y-1), grid) and maze_check((x-1, y-2), grid) and maze_check((x, y-2), grid) and maze_check((x+1, y-2), grid) and maze_check((x+1, y-1), grid):
                         grid[x][y-1].set_wall()
-                        maze(grid[x][y-1], start, end, grid)
+                        maze(grid[x][y-1], grid)
         elif num == 2:#right
             if valid_pos((x+1, y), grid):
-                if not (grid[x+1][y] == start or grid[x+1][y] == end or grid[x+1][y].is_flag()):
+                if not grid[x+1][y].is_destination():
                     if maze_check((x+1, y-1), grid) and maze_check((x+2, y-1), grid) and maze_check((x+2, y), grid) and maze_check((x+2, y+1), grid) and maze_check((x+1, y+1), grid):
                         grid[x+1][y].set_wall()
-                        maze(grid[x+1][y], start, end, grid)
+                        maze(grid[x+1][y], grid)
         elif num == 3:#down
             if valid_pos((x, y+1), grid):
-                if not (grid[x][y+1] == start or grid[x][y+1] == end or grid[x][y+1].is_flag()):
+                if not grid[x][y+1].is_destination():
                     if maze_check((x-1, y+1), grid) and maze_check((x-1, y+2), grid) and maze_check((x, y+2), grid) and maze_check((x+1, y+2), grid) and maze_check((x+1, y+1), grid):
                         grid[x][y+1].set_wall()
-                        maze(grid[x][y+1], start, end, grid)
+                        maze(grid[x][y+1], grid)
         elif num == 4:#left
             if valid_pos((x-1, y), grid):
-                if not (grid[x-1][y] == start or grid[x-1][y] == end or grid[x-1][y].is_flag()):
+                if not grid[x-1][y].is_destination():
                     if maze_check((x-1, y-1), grid) and maze_check((x-2, y-1), grid) and maze_check((x-2, y), grid) and maze_check((x-2, y+1), grid) and maze_check((x-1, y+1), grid):
                         grid[x-1][y].set_wall()
-                        maze(grid[x-1][y], start, end, grid) 
+                        maze(grid[x-1][y], grid) 
      
 def main():
     WIN.fill(WHITE)
@@ -322,7 +325,7 @@ def main():
                         for button in buttons:
                             if button.get_rect().collidepoint(event.pos):
                                 if buttons.index(button) == 2:
-                                    maze(grid[SIZE//2][SIZE//2], start, end, grid)
+                                    maze(grid[SIZE//2][SIZE//2], grid)
                                 elif buttons.index(button) == 3:
                                     make_flag = not make_flag
                                 else:
@@ -353,7 +356,7 @@ def main():
                         prev_color = end.color
                         end.set_end()
                 elif make_flag:
-                    if not (grid[x][y].is_start() or grid[x][y].is_end() or grid[x][y].is_flag()):
+                    if not grid[x][y].is_destination():
                         grid[x][y].set_flag()
                         flags.append(grid[x][y])
                         make_flag = False
