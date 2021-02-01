@@ -247,18 +247,15 @@ def maze(pos, grid):
             index = randint(0, 4) - 1
         available.remove(index)
         x1, y1 = directions[index]
-        if valid_pos((x+x1, y+y1), grid):
+        for i in range(-1, 2):
+            new_x = x+x1+i*abs(y1)
+            new_y = y+y1+i*abs(x1)
+            if not (valid_pos((new_x, new_y), grid) and valid_pos((new_x+x1, new_y+y1), grid)):
+                break
+        else:
             if not grid[x+x1][y+y1].is_destination():
-                if x1: #left or right
-                    if 0 <= x+x1+x1 and x+x1+x1 < SIZE and 0 <= y-1 and y+1 < SIZE:
-                        if not (grid[x+x1][y-1].is_wall() or grid[x+x1+x1][y-1].is_wall() or grid[x+x1+x1][y].is_wall() or grid[x+x1+x1][y+1].is_wall() or grid[x+x1][y+1].is_wall()):
-                            grid[x+x1][y].set_wall()
-                            maze((x+x1, y), grid)
-                else: #up or down
-                    if 0 <= x-1 and x+1 < SIZE and 0 <= y+y1+y1 and y+y1+y1 < SIZE:
-                        if not (grid[x-1][y+y1].is_wall() or grid[x-1][y+y1+y1].is_wall() or grid[x][y+y1+y1].is_wall() or grid[x+1][y+y1+y1].is_wall() or grid[x+1][y+y1].is_wall()):
-                            grid[x][y+y1].set_wall()
-                            maze((x, y+y1), grid)
+                grid[x+x1][y+y1].set_wall()
+                maze((x+x1, y+y1), grid)
 
 def main():
     WIN.fill(WHITE)
