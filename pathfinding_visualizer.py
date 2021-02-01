@@ -11,6 +11,8 @@ WIN = pygame.display.set_mode((WIDTH+SIDE_BAR, WIDTH))
 pygame.display.set_caption("Pathfinding Visualizer")
 font = pygame.font.SysFont('Corbel', 15)
 
+direction = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
@@ -80,24 +82,13 @@ class Node:
     def update_neighbours(self, grid):
         self.neighbours.clear()
         x, y = self.get_pos()
-
-        if valid_pos((x-1, y), grid):
-            self.neighbours.append(grid[x-1][y])
-        if valid_pos((x, y-1), grid):
-            self.neighbours.append(grid[x][y-1])
-        if valid_pos((x+1, y), grid):
-            self.neighbours.append(grid[x+1][y])
-        if valid_pos((x, y+1), grid):
-            self.neighbours.append(grid[x][y+1])
-
-        if valid_pos((x-1, y-1), grid) and (valid_pos((x-1, y), grid) or valid_pos((x, y-1), grid)):
-            self.neighbours.append(grid[x-1][y-1])
-        if valid_pos((x-1, y+1), grid) and (valid_pos((x-1, y), grid) or valid_pos((x, y+1), grid)):
-            self.neighbours.append(grid[x-1][y+1])
-        if valid_pos((x+1, y-1), grid) and (valid_pos((x+1, y), grid) or valid_pos((x, y-1), grid)):
-            self.neighbours.append(grid[x+1][y-1])
-        if valid_pos((x+1, y+1), grid) and (valid_pos((x+1, y), grid) or valid_pos((x, y+1), grid)):
-            self.neighbours.append(grid[x+1][y+1])
+        for index in range(len(direction)):
+            x1, y1 = direction[index]
+            x2, y2 = direction[(index+1)%4]
+            if valid_pos((x+x1, y+y1), grid):
+                self.neighbours.append(grid[x+x1][y+y1])
+            if valid_pos((x+x1+x2, y+y1+y2), grid) and (valid_pos((x+x1, y+y1), grid) or valid_pos((x+x2, y+y2), grid)):
+                self.neighbours.append(grid[x+x1+x2][y+y1+y2])
 
 class Button:
     def __init__(self, x_pos, y_pos, width, height, text):
