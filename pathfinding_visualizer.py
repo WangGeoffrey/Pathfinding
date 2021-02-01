@@ -11,7 +11,7 @@ WIN = pygame.display.set_mode((WIDTH+SIDE_BAR, WIDTH))
 pygame.display.set_caption("Pathfinding Visualizer")
 font = pygame.font.SysFont('Corbel', 15)
 
-direction = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+directions = [(0, -1), (1, 0), (0, 1), (-1, 0)] #[up, right, down, left]
 
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -82,9 +82,9 @@ class Node:
     def update_neighbours(self, grid):
         self.neighbours.clear()
         x, y = self.get_pos()
-        for index in range(len(direction)):
-            x1, y1 = direction[index]
-            x2, y2 = direction[(index+1)%4]
+        for index in range(len(directions)):
+            x1, y1 = directions[index]
+            x2, y2 = directions[(index+1)%4]
             if valid_pos((x+x1, y+y1), grid):
                 self.neighbours.append(grid[x+x1][y+y1])
             if valid_pos((x+x1+x2, y+y1+y2), grid) and (valid_pos((x+x1, y+y1), grid) or valid_pos((x+x2, y+y2), grid)):
@@ -237,47 +237,29 @@ def dijkstra(grid, start, end):
                 current.set_closed()
     return False
 
-def maze_check(pos, grid):
-    x, y = pos
-    if 0 <= x and x < SIZE and 0 <= y and y < SIZE:
-        return not grid[x][y].is_wall()
-    return False
-
-def maze(current, grid):
+def maze(pos, grid):
     draw_grid(grid)
-    pygame.display.update()
-    directions = {1, 2, 3, 4}
-    num = 0
-    x, y = current.get_pos()
-    while not len(directions) == 0:
-        while not num in directions:
-            num = randint(0, 4)
-        directions.remove(num)
-        if num == 1: #up
-            if valid_pos((x, y-1), grid):
-                if not grid[x][y-1].is_destination():
-                    if maze_check((x-1, y-1), grid) and maze_check((x-1, y-2), grid) and maze_check((x, y-2), grid) and maze_check((x+1, y-2), grid) and maze_check((x+1, y-1), grid):
-                        grid[x][y-1].set_wall()
-                        maze(grid[x][y-1], grid)
-        elif num == 2:#right
-            if valid_pos((x+1, y), grid):
-                if not grid[x+1][y].is_destination():
-                    if maze_check((x+1, y-1), grid) and maze_check((x+2, y-1), grid) and maze_check((x+2, y), grid) and maze_check((x+2, y+1), grid) and maze_check((x+1, y+1), grid):
-                        grid[x+1][y].set_wall()
-                        maze(grid[x+1][y], grid)
-        elif num == 3:#down
-            if valid_pos((x, y+1), grid):
-                if not grid[x][y+1].is_destination():
-                    if maze_check((x-1, y+1), grid) and maze_check((x-1, y+2), grid) and maze_check((x, y+2), grid) and maze_check((x+1, y+2), grid) and maze_check((x+1, y+1), grid):
-                        grid[x][y+1].set_wall()
-                        maze(grid[x][y+1], grid)
-        elif num == 4:#left
-            if valid_pos((x-1, y), grid):
-                if not grid[x-1][y].is_destination():
-                    if maze_check((x-1, y-1), grid) and maze_check((x-2, y-1), grid) and maze_check((x-2, y), grid) and maze_check((x-2, y+1), grid) and maze_check((x-1, y+1), grid):
-                        grid[x-1][y].set_wall()
-                        maze(grid[x-1][y], grid) 
-     
+    x, y = pos
+    available = {0, 1, 2, 3}
+    index = -1
+    while bool(available):
+        while not index in available:
+            index = randint(0, 4) - 1
+        available.remove(index)
+        x1, y1 = directions[index]
+        if valid_pos((x+x1, y+y1), grid):
+            if not grid[x+x1][y+y1].is_destination():
+                if x1: #left or right
+                    if 0 <= x+x1+x1 and x+x1+x1 < SIZE and 0 <= y-1 and y+1 < SIZE:
+                        if not (grid[x+x1][y-1].is_wall() or grid[x+x1+x1][y-1].is_wall() or grid[x+x1+x1][y].is_wall() or grid[x+x1+x1][y+1].is_wall() or grid[x+x1][y+1].is_wall()):
+                            grid[x+x1][y].set_wall()
+                            maze((x+x1, y), grid)
+                else: #up or down
+                    if 0 <= x-1 and x+1 < SIZE and 0 <= y+y1+y1 and y+y1+y1 < SIZE:
+                        if not (grid[x-1][y+y1].is_wall() or grid[x-1][y+y1+y1].is_wall() or grid[x][y+y1+y1].is_wall() or grid[x+1][y+y1+y1].is_wall() or grid[x+1][y+y1].is_wall()):
+                            grid[x][y+y1].set_wall()
+                            maze((x, y+y1), grid)
+
 def main():
     WIN.fill(WHITE)
     grid = make_grid()
@@ -317,7 +299,7 @@ def main():
                         for button in buttons:
                             if button.get_rect().collidepoint(event.pos):
                                 if buttons.index(button) == 2:
-                                    maze(grid[SIZE//2][SIZE//2], grid)
+                                    maze((SIZE//2, SIZE//2), grid)
                                 elif buttons.index(button) == 3:
                                     make_flag = not make_flag
                                 else:
