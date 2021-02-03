@@ -92,10 +92,6 @@ class Node:
 
 class Button:
     def __init__(self, x_pos, y_pos, width, height, text):
-        self.x_pos = x_pos
-        self.y_pos = y_pos
-        self.width = width
-        self.height = height
         self.color = WHITE
         self.rect = pygame.Rect(x_pos, y_pos, width, height)
         self.text = font.render(text, True, BLACK)
@@ -300,7 +296,6 @@ def main():
                                 elif buttons.index(button) == 3:
                                     make_flag = not make_flag
                                 else:
-                                    temp = search
                                     search = buttons.index(button)
                 prev_color = WHITE
                 if change_start:
@@ -315,13 +310,13 @@ def main():
                 if WIDTH <= pos[0]:
                     pass
                 elif change_start:
-                    if not grid[x][y].is_end():
+                    if not grid[x][y].is_destination():
                         start.color = prev_color
                         start = grid[x][y]
                         prev_color = start.color
                         start.set_start()
                 elif change_end:
-                    if not grid[x][y].is_start():
+                    if not grid[x][y].is_destination():
                         end.color = prev_color
                         end = grid[x][y]
                         prev_color = end.color
@@ -354,12 +349,8 @@ def main():
                 if event.key == pygame.K_SPACE:
                     for row in grid:
                         for node in row:
-                            if valid_pos(node.get_pos(), grid):
+                            if valid_pos(node.get_pos(), grid) and not node.is_destination():
                                 node.set_default()
-                    start.set_start()
-                    end.set_end()
-                    for flag in flags:
-                        flag.set_flag()
                     flags.append(end)
                     prev = start
                     for flag in flags:
