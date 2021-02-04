@@ -286,6 +286,8 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            pos = pygame.mouse.get_pos()
+            x, y = find_node(pos)
             if event.type == pygame.MOUSEBUTTONUP:
                 if not (change_start or change_end or make_wall):
                     if WIDTH <= pos[0]:
@@ -305,46 +307,42 @@ def main():
                 elif make_wall:
                     make_wall = False
             if pygame.mouse.get_pressed()[0]:
-                pos = pygame.mouse.get_pos()
-                x, y = find_node(pos)
-                if WIDTH <= pos[0]:
-                    pass
-                elif change_start:
-                    if not grid[x][y].is_destination():
-                        start.color = prev_color
-                        start = grid[x][y]
-                        prev_color = start.color
-                        start.set_start()
-                elif change_end:
-                    if not grid[x][y].is_destination():
-                        end.color = prev_color
-                        end = grid[x][y]
-                        prev_color = end.color
-                        end.set_end()
-                elif make_flag:
-                    if not grid[x][y].is_destination():
-                        grid[x][y].set_flag()
-                        flags.append(grid[x][y])
-                        make_flag = False
-                elif start.get_pos() == (x, y) and not change_end:
-                    if not make_wall:
-                        change_start = True
-                elif end.get_pos() == (x, y) and not change_start:
-                    if not make_wall:
-                        change_end = True
-                else:
-                    make_wall = True
-                    if not grid[x][y].is_flag():
-                        grid[x][y].set_wall()
+                if pos[0] < WIDTH:
+                    current = grid[x][y]
+                    if change_start:
+                        if not current.is_destination():
+                            start.color = prev_color
+                            start = current
+                            prev_color = start.color
+                            start.set_start()
+                    elif change_end:
+                        if not current.is_destination():
+                            end.color = prev_color
+                            end = current
+                            prev_color = end.color
+                            end.set_end()
+                    elif make_flag:
+                        if not current.is_destination():
+                            current.set_flag()
+                            flags.append(current)
+                            make_flag = False
+                    elif current.is_start() and not change_end:
+                        if not make_wall:
+                            change_start = True
+                    elif current.is_end() and not change_start:
+                        if not make_wall:
+                            change_end = True
+                    else:
+                        make_wall = True
+                        if not current.is_flag():
+                            current.set_wall()
             elif pygame.mouse.get_pressed()[2]:
-                pos = pygame.mouse.get_pos()
-                x, y = find_node(pos)
-                if WIDTH <= pos[0]:
-                    pass
-                elif not (start == grid[x][y] or end == grid[x][y]):
-                    if grid[x][y].is_flag():
-                        flags.remove(grid[x][y])
-                    grid[x][y].set_default()
+                if pos[0] < WIDTH:
+                    current = grid[x][y]
+                    if not (current.is_start() or current.is_end()):
+                        if current.is_flag():
+                            flags.remove(current)
+                        current.set_default()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     for row in grid:
@@ -362,12 +360,13 @@ def main():
                     flags.remove(end)
                 elif event.key == pygame.K_c:
                     grid = make_grid()
-                    start = grid[start.x_pos][start.y_pos]
+                    x1, y1 = start.get_pos()
+                    start = grid[x1][y1]
                     start.set_start()
-                    end = grid[end.x_pos][end.y_pos]
+                    x2, y2 = end.get_pos()
+                    end = grid[x2][y2]
                     end.set_end()
                     flags.clear()
-        pos = pygame.mouse.get_pos()
         for button in buttons:
             if button.get_rect().collidepoint(pos) or buttons.index(button) == search or (buttons.index(button) == 3 and make_flag):
                 button.selected()
