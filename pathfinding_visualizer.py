@@ -24,14 +24,16 @@ GREY = (128, 128, 128)
 TURQUOISE = (64, 224, 208)
 
 class Node:
-    def __init__(self, x_pos, y_pos):
-        self.x_pos = x_pos
-        self.y_pos = y_pos
+    def __init__(self, pos):
+        self.x_pos, self.y_pos = pos
         self.color = WHITE
         self.neighbours = []
 
     def get_pos(self):
         return self.x_pos, self.y_pos
+
+    def change_pos(self, new_pos):
+        self.x_pos, self.y_pos = new_pos
 
     def draw(self):
         size = WIDTH//SIZE
@@ -78,6 +80,9 @@ class Node:
     
     def set_closed(self):
         self.color = TURQUOISE
+
+    def put_in_grid(self, grid):
+        grid[self.x_pos][self.y_pos] = self
 
     def update_neighbours(self, grid):
         self.neighbours.clear()
@@ -133,12 +138,14 @@ def find_node(pos):
     x, y = pos
     return x//size, y//size
 
-def make_grid():
+def make_grid(start, end):
     grid = []
     for i in range(SIZE):
         grid.append([])
         for j in range(SIZE):
-            grid[i].append(Node(i, j))
+            grid[i].append(Node((i, j)))
+    start.put_in_grid(grid)
+    end.put_in_grid(grid)
     return grid
 
 def draw_grid(grid):
@@ -182,8 +189,10 @@ def astar(grid, start, end):
                 show_path(came_from, current, grid)
                 return True
             current.update_neighbours(grid)
+            x1, y1 = current.get_pos()
             for neighbour in current.neighbours:
-                new_g_cost = g_cost[current] + 10 + 4*((abs(current.x_pos - neighbour.x_pos) + abs(current.y_pos - neighbour.y_pos) + 1)%2)
+                x2, y2 = neighbour.get_pos()
+                new_g_cost = g_cost[current] + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
                 if neighbour not in g_cost or new_g_cost < g_cost[neighbour]:
                     g_cost[neighbour] = new_g_cost
                     f_cost[neighbour] = g_cost[neighbour] + distance(neighbour, end)
@@ -219,9 +228,11 @@ def dijkstra(grid, start, end):
                 show_path(came_from, current, grid)
                 return True
             current.update_neighbours(grid)
+            x1, y1 = current.get_pos()
             for neighbour in current.neighbours:
                 if neighbour not in open_hash:
-                    new_cost = current_cost + 10 + 4*((abs(current.x_pos - neighbour.x_pos) + abs(current.y_pos - neighbour.y_pos) + 1)%2)
+                    x2, y2 = neighbour.get_pos()
+                    new_cost = current_cost + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
                     count += 1
                     open.put((new_cost, count, neighbour))
                     open_hash.add(neighbour)
@@ -255,11 +266,11 @@ def maze(pos, grid):
 
 def main():
     WIN.fill(WHITE)
-    grid = make_grid()
-    start = grid[0][0]
+    start = Node((0, 0))
     start.set_start()
-    end = grid[SIZE - 1][SIZE - 1]
+    end = Node((SIZE-1, SIZE-1))
     end.set_end()
+    grid = make_grid(start, end)
     search = 0
     text = font.render('Algorithm' , True , BLACK)
     text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, SIDE_BAR//4))
@@ -274,13 +285,11 @@ def main():
     buttons[0].selected()
     for button in buttons:
         button.draw()
-    change_start = False
-    change_end = False
+    change = False
     make_wall = False
-    make_flag = False
+    add_flag = False
     flags = []
     running = True
-    prev_color = WHITE
     while running:
         draw_grid(grid)
         for event in pygame.event.get():
@@ -289,53 +298,38 @@ def main():
             pos = pygame.mouse.get_pos()
             x, y = find_node(pos)
             if event.type == pygame.MOUSEBUTTONUP:
-                if not (change_start or change_end or make_wall):
+                if change or make_wall:
+                    change = make_wall = False
+                else:
                     if WIDTH <= pos[0]:
                         for button in buttons:
                             if button.get_rect().collidepoint(event.pos):
                                 if buttons.index(button) == 2:
                                     maze((SIZE//2, SIZE//2), grid)
                                 elif buttons.index(button) == 3:
-                                    make_flag = not make_flag
+                                    add_flag = not add_flag
                                 else:
                                     search = buttons.index(button)
-                prev_color = WHITE
-                if change_start:
-                    change_start = False
-                elif change_end:
-                    change_end = False
-                elif make_wall:
-                    make_wall = False
             if pygame.mouse.get_pressed()[0]:
                 if pos[0] < WIDTH:
                     current = grid[x][y]
-                    if change_start:
-                        if not current.is_destination():
-                            start.color = prev_color
-                            start = current
-                            prev_color = start.color
-                            start.set_start()
-                    elif change_end:
-                        if not current.is_destination():
-                            end.color = prev_color
-                            end = current
-                            prev_color = end.color
-                            end.set_end()
-                    elif make_flag:
-                        if not current.is_destination():
-                            current.set_flag()
-                            flags.append(current)
-                            make_flag = False
-                    elif current.is_start() and not change_end:
-                        if not make_wall:
-                            change_start = True
-                    elif current.is_end() and not change_start:
-                        if not make_wall:
-                            change_end = True
+                    if current.is_destination():
+                        if not (change or add_flag or make_wall):
+                            move_node = current
+                            prev_node = Node(current.get_pos())
+                            change = True
+                    elif change:
+                        prev_node.put_in_grid(grid)
+                        prev_node = current
+                        move_node.change_pos(current.get_pos())
+                        move_node.put_in_grid(grid)
+                    elif add_flag:
+                        current.set_flag()
+                        flags.append(current)
+                        add_flag = False
                     else:
                         make_wall = True
-                        if not current.is_flag():
-                            current.set_wall()
+                        current.set_wall()
             elif pygame.mouse.get_pressed()[2]:
                 if pos[0] < WIDTH:
                     current = grid[x][y]
@@ -359,16 +353,10 @@ def main():
                         prev = flag
                     flags.remove(end)
                 elif event.key == pygame.K_c:
-                    grid = make_grid()
-                    x1, y1 = start.get_pos()
-                    start = grid[x1][y1]
-                    start.set_start()
-                    x2, y2 = end.get_pos()
-                    end = grid[x2][y2]
-                    end.set_end()
+                    grid = make_grid(start, end)
                     flags.clear()
         for button in buttons:
-            if button.get_rect().collidepoint(pos) or buttons.index(button) == search or (buttons.index(button) == 3 and make_flag):
+            if button.get_rect().collidepoint(pos) or buttons.index(button) == search or (buttons.index(button) == 3 and add_flag):
                 button.selected()
             else:
                 button.deselected()
