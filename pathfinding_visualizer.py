@@ -2,11 +2,12 @@ import pygame
 import math
 from queue import PriorityQueue
 from random import randint
+from random import choice
 
 pygame.init()
-WIDTH = 600
+WIDTH = 612
 SIDE_BAR = 100
-SIZE = 50
+SIZE = 51
 WIN = pygame.display.set_mode((WIDTH+SIDE_BAR, WIDTH))
 pygame.display.set_caption("Pathfinding Visualizer")
 font = pygame.font.SysFont('Corbel', 15)
@@ -132,11 +133,6 @@ def valid_pos(pos, grid):
         if not grid[x][y].is_wall():
             result = True
     return result
-
-def find_node(pos):
-    size = WIDTH//SIZE
-    x, y = pos
-    return x//size, y//size
 
 def make_grid(start, end):
     grid = []
@@ -264,6 +260,39 @@ def maze(pos, grid):
                 grid[x+x1][y+y1].set_wall()
                 maze((x+x1, y+y1), grid)
 
+def grow_tree(mode, grid):
+    junctions = set()
+    for i in range(0, SIZE):
+        for j in range(0, SIZE):
+            if not (i%2 == 0 and j%2 == 0):
+                grid[i][j].color = GREY
+            else:
+                junctions.add(grid[i][j])
+    check = {junctions.pop(): list(directions)}
+    removed = set()
+    while bool(check):
+        draw_grid(grid)
+        if mode:
+            current, adjacent = check.popitem()
+        else:
+            current, adjacent = choice(list(check.items()))
+            check.pop(current)
+        x, y = current.get_pos()
+        index = randint(0, len(adjacent))-1
+        x1, y1 = adjacent.pop(index)
+        x2 = x+2*x1
+        y2 = y+2*y1
+        valid = False
+        if valid_pos((x2, y2), grid):
+            valid = not (grid[x2][y2] in check.keys() or grid[x2][y2] in removed)
+        if bool(adjacent):
+            check[current] = adjacent
+        else:
+            removed.add(current)
+        if valid:
+            check[grid[x2][y2]] = list(directions)
+            grid[x2-x1][y2-y1].set_default()
+
 def main():
     WIN.fill(WHITE)
     start = Node((0, 0))
@@ -279,8 +308,10 @@ def main():
     buttons = [
         Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'),
         Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'),
-        Button(WIDTH+1, 3*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Maze'),
-        Button(WIDTH+1, 2*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Add Flag')
+        Button(WIDTH+1, 3*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Add Flag'),
+        Button(WIDTH+1, 2*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Maze'),
+        Button(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Recursive'),
+        Button(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Prim\'s')
     ]
     buttons[0].selected()
     for button in buttons:
@@ -296,18 +327,28 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             pos = pygame.mouse.get_pos()
-            x, y = find_node(pos)
+            x, y = tuple(elem//(WIDTH//SIZE) for elem in pos)
             if event.type == pygame.MOUSEBUTTONUP:
                 if change or make_wall:
                     change = make_wall = False
                 else:
                     if WIDTH <= pos[0]:
                         for button in buttons:
-                            if button.get_rect().collidepoint(event.pos):
+                            if button.get_rect().collidepoint(pos):
                                 if buttons.index(button) == 2:
-                                    maze((SIZE//2, SIZE//2), grid)
-                                elif buttons.index(button) == 3:
                                     add_flag = not add_flag
+                                elif buttons.index(button) == 3:
+                                    maze((SIZE//2, SIZE//2), grid)
+                                elif buttons.index(button) == 4 or buttons.index(button) == 5:
+                                    start = Node((0, 0))
+                                    start.set_start()
+                                    end = Node((SIZE-1, SIZE-1))
+                                    end.set_end()
+                                    grid = make_grid(start, end)
+                                    if buttons.index(button) == 4:
+                                        grow_tree(True, grid)
+                                    else:
+                                        grow_tree(False, grid)
                                 else:
                                     search = buttons.index(button)
             if pygame.mouse.get_pressed()[0]:
@@ -341,7 +382,7 @@ def main():
                 if event.key == pygame.K_SPACE:
                     for row in grid:
                         for node in row:
-                            if valid_pos(node.get_pos(), grid) and not node.is_destination():
+                            if not (node.is_destination() or node.is_wall()):
                                 node.set_default()
                     flags.append(end)
                     prev = start
