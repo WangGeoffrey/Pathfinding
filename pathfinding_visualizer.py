@@ -1,13 +1,12 @@
 import pygame
-import math
 from queue import PriorityQueue
-from random import randint
 from random import choice
 
 pygame.init()
 WIDTH = 612
+ACROSS = 51
+SIZE = WIDTH//ACROSS
 SIDE_BAR = 100
-SIZE = 51
 WIN = pygame.display.set_mode((WIDTH+SIDE_BAR, WIDTH))
 pygame.display.set_caption("Pathfinding Visualizer")
 font = pygame.font.SysFont('Corbel', 15)
@@ -28,7 +27,7 @@ class Node:
     def __init__(self, pos):
         self.x_pos, self.y_pos = pos
         self.color = WHITE
-        self.neighbours = []
+        self.neighbors = []
 
     def get_pos(self):
         return self.x_pos, self.y_pos
@@ -36,9 +35,11 @@ class Node:
     def change_pos(self, new_pos):
         self.x_pos, self.y_pos = new_pos
 
+    def get_neighbors(self):
+        return self.neighbors.copy()
+
     def draw(self):
-        size = WIDTH//SIZE
-        pygame.draw.rect(WIN, self.color, (self.x_pos*size, self.y_pos*size, size, size))
+        pygame.draw.rect(WIN, self.color, (self.x_pos*SIZE, self.y_pos*SIZE, SIZE, SIZE))
 
     def is_start(self):
         return self.color == GREEN
@@ -85,16 +86,16 @@ class Node:
     def put_in_grid(self, grid):
         grid[self.x_pos][self.y_pos] = self
 
-    def update_neighbours(self, grid):
-        self.neighbours.clear()
+    def update_neighbors(self, grid):
+        self.neighbors.clear()
         x, y = self.get_pos()
         for index in range(len(directions)):
             x1, y1 = directions[index]
             x2, y2 = directions[(index+1)%4]
             if valid_pos((x+x1, y+y1), grid):
-                self.neighbours.append(grid[x+x1][y+y1])
+                self.neighbors.append(grid[x+x1][y+y1])
             if valid_pos((x+x1+x2, y+y1+y2), grid) and (valid_pos((x+x1, y+y1), grid) or valid_pos((x+x2, y+y2), grid)):
-                self.neighbours.append(grid[x+x1+x2][y+y1+y2])
+                self.neighbors.append(grid[x+x1+x2][y+y1+y2])
 
 class Button:
     def __init__(self, x_pos, y_pos, width, height, text):
@@ -129,16 +130,16 @@ def distance(current, end):
 def valid_pos(pos, grid):
     x, y = pos
     result = False
-    if 0 <= x < SIZE and 0 <= y < SIZE:
+    if 0 <= x < ACROSS and 0 <= y < ACROSS:
         if not grid[x][y].is_wall():
             result = True
     return result
 
 def make_grid(start, end):
     grid = []
-    for i in range(SIZE):
+    for i in range(ACROSS):
         grid.append([])
-        for j in range(SIZE):
+        for j in range(ACROSS):
             grid[i].append(Node((i, j)))
     start.put_in_grid(grid)
     end.put_in_grid(grid)
@@ -148,7 +149,7 @@ def draw_grid(grid):
     for row in grid:
         for node in row:
             node.draw()
-    for number in range(0, WIDTH+1, WIDTH//SIZE):
+    for number in range(0, WIDTH+1, SIZE):
         pygame.draw.line(WIN, BLACK, (0, number), (WIDTH, number))
         pygame.draw.line(WIN, BLACK, (number, 0), (number, WIDTH))
     pygame.display.update()
@@ -160,6 +161,12 @@ def show_path(came_from, current, grid):
             current.set_path()
         draw_grid(grid)
 
+def exit():
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            return True
+
 def astar(grid, start, end):
     count = 0
     open = PriorityQueue()
@@ -170,38 +177,32 @@ def astar(grid, start, end):
     f_cost = {}
     f_cost[start] = distance(start, end)
     open_hash = {start}
-    paused = False
     while not open.empty():
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    paused = not paused
-        if not paused:
-            current = open.get()[2]
-            open_hash.remove(current)
-            if current == end:
-                show_path(came_from, current, grid)
-                return True
-            current.update_neighbours(grid)
-            x1, y1 = current.get_pos()
-            for neighbour in current.neighbours:
-                x2, y2 = neighbour.get_pos()
-                new_g_cost = g_cost[current] + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
-                if neighbour not in g_cost or new_g_cost < g_cost[neighbour]:
-                    g_cost[neighbour] = new_g_cost
-                    f_cost[neighbour] = g_cost[neighbour] + distance(neighbour, end)
-                    came_from[neighbour] = current
-                    if not neighbour in open_hash:
-                        count += 1
-                        open.put((f_cost[neighbour], count, neighbour))
-                        open_hash.add(neighbour)
-                        if neighbour != end and not (neighbour.is_path() or neighbour.is_destination()):
-                            neighbour.set_open()
-            draw_grid(grid)
-            if current != start and not (current.is_path() or current.is_destination()):
-                current.set_closed()
+        if exit():
+            return False
+        current = open.get()[2]
+        open_hash.remove(current)
+        if current == end:
+            show_path(came_from, current, grid)
+            return True
+        current.update_neighbors(grid)
+        x1, y1 = current.get_pos()
+        for neighbor in current.get_neighbors():
+            x2, y2 = neighbor.get_pos()
+            new_g_cost = g_cost[current] + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
+            if neighbor not in g_cost or new_g_cost < g_cost[neighbor]:
+                g_cost[neighbor] = new_g_cost
+                f_cost[neighbor] = g_cost[neighbor] + distance(neighbor, end)
+                came_from[neighbor] = current
+                if not neighbor in open_hash:
+                    count += 1
+                    open.put((f_cost[neighbor], count, neighbor))
+                    open_hash.add(neighbor)
+                    if neighbor != end and not (neighbor.is_path() or neighbor.is_destination()):
+                        neighbor.set_open()
+        draw_grid(grid)
+        if current != start and not (current.is_path() or current.is_destination()):
+            current.set_closed()
     return False
 
 def dijkstra(grid, start, end):
@@ -210,46 +211,38 @@ def dijkstra(grid, start, end):
     open.put((0, count, start))
     open_hash = {start}
     came_from = {}
-    paused = False
     while not open.empty():
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    paused = not paused
-        if not paused:
-            current_cost, dummy, current = open.get()
-            if current == end:
-                show_path(came_from, current, grid)
-                return True
-            current.update_neighbours(grid)
-            x1, y1 = current.get_pos()
-            for neighbour in current.neighbours:
-                if neighbour not in open_hash:
-                    x2, y2 = neighbour.get_pos()
-                    new_cost = current_cost + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
-                    count += 1
-                    open.put((new_cost, count, neighbour))
-                    open_hash.add(neighbour)
-                    came_from[neighbour] = current
-                    if neighbour != end and not (neighbour.is_path() or neighbour.is_destination()):
-                            neighbour.set_open()
-            draw_grid(grid)
-            if current != start and not (current.is_path() or current.is_destination()):
-                current.set_closed()
+        if exit():
+            return False
+        current_cost, dummy, current = open.get()
+        if current == end:
+            show_path(came_from, current, grid)
+            return True
+        current.update_neighbors(grid)
+        x1, y1 = current.get_pos()
+        for neighbor in current.get_neighbors():
+            if neighbor not in open_hash:
+                x2, y2 = neighbor.get_pos()
+                new_cost = current_cost + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
+                count += 1
+                open.put((new_cost, count, neighbor))
+                open_hash.add(neighbor)
+                came_from[neighbor] = current
+                if neighbor != end and not (neighbor.is_path() or neighbor.is_destination()):
+                        neighbor.set_open()
+        draw_grid(grid)
+        if current != start and not (current.is_path() or current.is_destination()):
+            current.set_closed()
     return False
 
 def maze(pos, grid): #Generate maze by making walls
     draw_grid(grid)
     x, y = pos
-    available = {0, 1, 2, 3}
-    index = -1
-    while bool(available):
-        while not index in available:
-            index = randint(0, 4) - 1
-        available.remove(index)
-        x1, y1 = directions[index]
+    d = directions.copy()
+    while bool(d):
+        if exit():
+            return False
+        x1, y1 = d.pop(d.index(choice(d)))
         for i in range(-1, 2):
             new_x = x+x1+i*abs(y1)
             new_y = y+y1+i*abs(x1)
@@ -263,8 +256,8 @@ def maze(pos, grid): #Generate maze by making walls
 def grow_tree(mode, grid): #Generate maze by removing walls
     nodes = {}
     d = {(x*2, y*2) for x, y in directions}
-    for i in range(0, SIZE):
-        for j in range(i, SIZE):
+    for i in range(0, ACROSS):
+        for j in range(i, ACROSS):
             if i%2 == 1 or j%2 == 1:
                 grid[i][j].set_wall()
                 grid[j][i].set_wall()
@@ -280,28 +273,30 @@ def grow_tree(mode, grid): #Generate maze by removing walls
     check = [set(nodes.keys()).pop()]
     removed = set()
     while bool(check):
+        if exit():
+            return False
         draw_grid(grid)
         current = get_node()
-        neighbours = nodes.get(current)
-        neighbours = neighbours.difference(set(check).union(removed))
-        if bool(neighbours):
-            neighbour = choice(list(neighbours))    #1
-            neighbours.remove(neighbour)            #1
-            # neighbour = neighbours.pop()          #2
-        if not bool(neighbours):
+        neighbors = nodes.get(current)
+        neighbors = neighbors.difference(set(check).union(removed))
+        if bool(neighbors):
+            neighbor = choice(list(neighbors))    #1
+            neighbors.remove(neighbor)            #1
+            # neighbor = neighbors.pop()          #2
+        if not bool(neighbors):
             check.remove(current)
             removed.add(current)
-        if not (neighbour in check or neighbour in removed):
-            check.append(neighbour)
+        if not (neighbor in check or neighbor in removed):
+            check.append(neighbor)
             x, y = current.get_pos()
-            x1, y1 = neighbour.get_pos()
+            x1, y1 = neighbor.get_pos()
             grid[x+(x1-x)//2][y+(y1-y)//2].set_default()
 
 def main():
     WIN.fill(WHITE)
     start = Node((0, 0))
     start.set_start()
-    end = Node((SIZE-1, SIZE-1))
+    end = Node((ACROSS-1, ACROSS-1))
     end.set_end()
     grid = make_grid(start, end)
     search = 0
@@ -331,7 +326,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             pos = pygame.mouse.get_pos()
-            x, y = tuple(elem//(WIDTH//SIZE) for elem in pos)
+            x, y = tuple(elem//(SIZE) for elem in pos)
             if event.type == pygame.MOUSEBUTTONUP:
                 if change or make_wall:
                     change = make_wall = False
@@ -342,10 +337,10 @@ def main():
                                 if buttons.index(button) == 2:
                                     add_flag = not add_flag
                                 elif buttons.index(button) == 3:
-                                    maze((SIZE//2, SIZE//2), grid)
+                                    maze((ACROSS//2, ACROSS//2), grid)
                                 elif buttons.index(button) == 4 or buttons.index(button) == 5:
                                     start = Node((0, 0))
-                                    end = Node((SIZE-1, SIZE-1))
+                                    end = Node((ACROSS-1, ACROSS-1))
                                     grid = make_grid(start, end)
                                     flags.clear()
                                     if buttons.index(button) == 4:
