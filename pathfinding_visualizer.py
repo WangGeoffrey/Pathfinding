@@ -129,7 +129,7 @@ def distance(current, end):
 def valid_pos(pos, grid):
     x, y = pos
     result = False
-    if 0 <= x and x < SIZE and 0 <= y and y < SIZE:
+    if 0 <= x < SIZE and 0 <= y < SIZE:
         if not grid[x][y].is_wall():
             result = True
     return result
@@ -240,7 +240,7 @@ def dijkstra(grid, start, end):
                 current.set_closed()
     return False
 
-def maze(pos, grid):
+def maze(pos, grid): #Generate maze by making walls
     draw_grid(grid)
     x, y = pos
     available = {0, 1, 2, 3}
@@ -260,38 +260,42 @@ def maze(pos, grid):
                 grid[x+x1][y+y1].set_wall()
                 maze((x+x1, y+y1), grid)
 
-def grow_tree(mode, grid):
-    junctions = set()
+def grow_tree(mode, grid): #Generate maze by removing walls
+    nodes = {}
+    d = {(x*2, y*2) for x, y in directions}
     for i in range(0, SIZE):
-        for j in range(0, SIZE):
-            if not (i%2 == 0 and j%2 == 0):
-                grid[i][j].color = GREY
+        for j in range(i, SIZE):
+            if i%2 == 1 or j%2 == 1:
+                grid[i][j].set_wall()
+                grid[j][i].set_wall()
             else:
-                junctions.add(grid[i][j])
-    check = {junctions.pop(): list(directions)}
+                nodes[grid[i][j]] = {grid[i+v][j+h] for v, h in d if valid_pos((i+v, j+h), grid)}
+                nodes[grid[j][i]] = {grid[j+v][i+h] for v, h in d if valid_pos((j+v, i+h), grid)}
+        draw_grid(grid)
+    if mode:
+        get_node = lambda: check[len(check)-1]
+    else:
+        get_node = lambda: check[check.index(choice(check))]        #1
+        # get_node = lambda: check[check.index(set(check).pop())]   #2
+    check = [set(nodes.keys()).pop()]
     removed = set()
     while bool(check):
         draw_grid(grid)
-        if mode:
-            current, adjacent = check.popitem()
-        else:
-            current, adjacent = choice(list(check.items()))
-            check.pop(current)
-        x, y = current.get_pos()
-        index = randint(0, len(adjacent))-1
-        x1, y1 = adjacent.pop(index)
-        x2 = x+2*x1
-        y2 = y+2*y1
-        valid = False
-        if valid_pos((x2, y2), grid):
-            valid = not (grid[x2][y2] in check.keys() or grid[x2][y2] in removed)
-        if bool(adjacent):
-            check[current] = adjacent
-        else:
+        current = get_node()
+        neighbours = nodes.get(current)
+        neighbours = neighbours.difference(set(check).union(removed))
+        if bool(neighbours):
+            neighbour = choice(list(neighbours))    #1
+            neighbours.remove(neighbour)            #1
+            # neighbour = neighbours.pop()          #2
+        if not bool(neighbours):
+            check.remove(current)
             removed.add(current)
-        if valid:
-            check[grid[x2][y2]] = list(directions)
-            grid[x2-x1][y2-y1].set_default()
+        if not (neighbour in check or neighbour in removed):
+            check.append(neighbour)
+            x, y = current.get_pos()
+            x1, y1 = neighbour.get_pos()
+            grid[x+(x1-x)//2][y+(y1-y)//2].set_default()
 
 def main():
     WIN.fill(WHITE)
@@ -341,14 +345,15 @@ def main():
                                     maze((SIZE//2, SIZE//2), grid)
                                 elif buttons.index(button) == 4 or buttons.index(button) == 5:
                                     start = Node((0, 0))
-                                    start.set_start()
                                     end = Node((SIZE-1, SIZE-1))
-                                    end.set_end()
                                     grid = make_grid(start, end)
+                                    flags.clear()
                                     if buttons.index(button) == 4:
                                         grow_tree(True, grid)
                                     else:
                                         grow_tree(False, grid)
+                                    start.set_start()
+                                    end.set_end()
                                 else:
                                     search = buttons.index(button)
             if pygame.mouse.get_pressed()[0]:
