@@ -21,6 +21,7 @@ ORANGE = (255, 165, 0)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREY = (128, 128, 128)
+LIGHTGREY = (192, 192, 192)
 TURQUOISE = (64, 224, 208)
 
 class Node:
@@ -97,12 +98,13 @@ class Node:
             if valid_pos((x+x1+x2, y+y1+y2), grid) and (valid_pos((x+x1, y+y1), grid) or valid_pos((x+x2, y+y2), grid)):
                 self.neighbors.append(grid[x+x1+x2][y+y1+y2])
 
-class Button:
+class Button: #Toggle button
     def __init__(self, x_pos, y_pos, width, height, text):
         self.color = WHITE
         self.rect = pygame.Rect(x_pos, y_pos, width, height)
         self.text = font.render(text, True, BLACK)
         self.text_rect = self.text.get_rect(center=(x_pos + width//2, y_pos + height//2))
+        self.toggle = False
 
     def get_rect(self):
         return self.rect
@@ -110,11 +112,37 @@ class Button:
     def draw(self):
         pygame.draw.rect(WIN, self.color, self.rect)
         WIN.blit(self.text, self.text_rect)
+
+    def hovered(self):
+        if self.color != GREY:
+            self.color = LIGHTGREY
+
+    def clicked(self):
+        self.toggle = not self.toggle
+
+    def is_selected(self):
+        return self.toggle
     
     def selected(self):
-        self.color = GREY
+        if self.toggle:
+            self.color = GREY
+        else:
+            self.color = WHITE
 
-    def deselected(self):
+class Button2(Button): #Execute button
+    def __init__(self, x_pos, y_pos, width, height, text, function):
+        self.color = WHITE
+        self.rect = pygame.Rect(x_pos, y_pos, width, height)
+        self.text = font.render(text, True, BLACK)
+        self.text_rect = self.text.get_rect(center=(x_pos + width//2, y_pos + height//2))
+        self.execute = function
+
+    def clicked(self):
+        self.color = GREY
+        self.draw()
+        self.execute()
+
+    def selected(self):
         self.color = WHITE
 
 def distance(current, end):
@@ -253,6 +281,25 @@ def maze(pos, grid): #Generate maze by making walls
                 grid[x+x1][y+y1].set_wall()
                 maze((x+x1, y+y1), grid)
 
+def gen_maze(start, end, grid, flags, mode):
+    for col in grid:
+        for node in col:
+            node.set_default()
+    if start.get_pos() != (0, 0):
+        x, y = start.get_pos()
+        start.change_pos((0, 0))
+        start.put_in_grid(grid)
+        grid[x][y] = Node((x, y))
+    if end.get_pos() != (ACROSS-1, ACROSS-1):
+        x, y = end.get_pos()
+        end.change_pos((ACROSS-1, ACROSS-1))
+        end.put_in_grid(grid)
+        grid[x][y] = Node((x, y))
+    flags.clear()
+    grow_tree(mode, grid)
+    start.set_start()
+    end.set_end()
+
 def grow_tree(mode, grid): #Generate maze by removing walls
     nodes = {}
     d = {(x*2, y*2) for x, y in directions}
@@ -299,7 +346,6 @@ def main():
     end = Node((ACROSS-1, ACROSS-1))
     end.set_end()
     grid = make_grid(start, end)
-    search = 0
     text = font.render('Algorithm' , True , BLACK)
     text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, SIDE_BAR//4))
     WIN.blit(text, text_rect)
@@ -308,16 +354,16 @@ def main():
         Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'),
         Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'),
         Button(WIDTH+1, 3*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Add Flag'),
-        Button(WIDTH+1, 2*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Maze'),
-        Button(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Recursive'),
-        Button(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Prim\'s')
+        Button2(WIDTH+1, 2*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Maze', lambda: maze((ACROSS//2, ACROSS//2), grid)),
+        Button2(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: gen_maze(start, end, grid, flags, True)),
+        Button2(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: gen_maze(start, end, grid, flags, False))
     ]
-    buttons[0].selected()
+    buttons[0].clicked()
     for button in buttons:
         button.draw()
+    search = lambda: astar(grid, prev, next)
     change = False
     make_wall = False
-    add_flag = False
     flags = []
     running = True
     while running:
@@ -328,34 +374,24 @@ def main():
             pos = pygame.mouse.get_pos()
             x, y = tuple(elem//(SIZE) for elem in pos)
             if event.type == pygame.MOUSEBUTTONUP:
-                if change or make_wall:
-                    change = make_wall = False
-                else:
-                    if WIDTH <= pos[0]:
-                        for button in buttons:
-                            if button.get_rect().collidepoint(pos):
-                                if buttons.index(button) == 2:
-                                    add_flag = not add_flag
-                                elif buttons.index(button) == 3:
-                                    maze((ACROSS//2, ACROSS//2), grid)
-                                elif buttons.index(button) == 4 or buttons.index(button) == 5:
-                                    start = Node((0, 0))
-                                    end = Node((ACROSS-1, ACROSS-1))
-                                    grid = make_grid(start, end)
-                                    flags.clear()
-                                    if buttons.index(button) == 4:
-                                        grow_tree(True, grid)
-                                    else:
-                                        grow_tree(False, grid)
-                                    start.set_start()
-                                    end.set_end()
-                                else:
-                                    search = buttons.index(button)
+                if WIDTH <= pos[0]:
+                    for button in buttons:
+                        if button.get_rect().collidepoint(pos):
+                            if buttons.index(button) > 1:
+                                pass
+                            elif buttons.index(button) > 0:
+                                buttons[0].clicked()
+                                search = lambda: dijkstra(grid, prev, next)
+                            else:
+                                buttons[1].clicked()
+                                search = lambda: astar(grid, prev, next)
+                            button.clicked()
+                change = make_wall = False
             if pygame.mouse.get_pressed()[0]:
                 if pos[0] < WIDTH:
                     current = grid[x][y]
                     if current.is_destination():
-                        if not (change or add_flag or make_wall):
+                        if not (change or buttons[2].is_selected() or make_wall):
                             move_node = current
                             prev_node = Node(current.get_pos())
                             change = True
@@ -364,10 +400,10 @@ def main():
                         prev_node = current
                         move_node.change_pos(current.get_pos())
                         move_node.put_in_grid(grid)
-                    elif add_flag:
+                    elif buttons[2].is_selected():
                         current.set_flag()
                         flags.append(current)
-                        add_flag = False
+                        buttons[2].clicked()
                     else:
                         make_wall = True
                         current.set_wall()
@@ -386,21 +422,17 @@ def main():
                                 node.set_default()
                     flags.append(end)
                     prev = start
-                    for flag in flags:
-                        if search:
-                            dijkstra(grid, prev, flag)
-                        else:
-                            astar(grid, prev, flag)
-                        prev = flag
+                    for next in flags:
+                        search()
+                        prev = next
                     flags.remove(end)
                 elif event.key == pygame.K_c:
                     grid = make_grid(start, end)
                     flags.clear()
         for button in buttons:
-            if button.get_rect().collidepoint(pos) or buttons.index(button) == search or (buttons.index(button) == 3 and add_flag):
-                button.selected()
-            else:
-                button.deselected()
+            button.selected()
+            if button.get_rect().collidepoint(pos):
+                button.hovered()
             button.draw()
         pygame.draw.line(WIN, BLACK, (WIDTH, 3*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, 3*SIDE_BAR//2 - 2), 2)
     pygame.quit()
