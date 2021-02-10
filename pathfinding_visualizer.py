@@ -338,55 +338,42 @@ def grow_tree(mode, grid): #Generate maze by removing walls
             x, y = current.get_pos()
             x1, y1 = neighbor.get_pos()
             grid[x+(x1-x)//2][y+(y1-y)//2].set_default()
-            
+
 #costs: a dictionary with key as tuple of connected nodes and value as distance between them
 def shortest_path(costs, flags, included, next, end, path, total):
-    result = path.copy()
+    return_path = path.copy()
     return_total = total
-    run = True
-    if len(path) < len(flags)-1:
+    if len(path) < len(flags):
+        run = True
         return_total = 0
         while run:
             new_total = total
-            temp = None
-            next_call = None
-            for cost in costs:
-                if next in cost and not end in cost:
-                    temp = cost
-                    new_total += costs.pop(cost)
-                    next_call = cost[(cost.index(next)+1)%2]
-                    break
+            new_next = None
+            if len(path) < len(flags)-1:
+                for cost in costs:
+                    if next in cost and not end in cost:
+                        key = cost
+                        new_total += costs.pop(key)
+                        new_next = cost[(cost.index(next)+1)%2]
+                        break
+                else:
+                    run = False
             else:
-                run = False
-            if bool(temp) and bool(next_call):
-                has = included.copy()
-                route = path.copy()
-                route.append(temp)
-                from_call, from_total = shortest_path(costs.copy(), flags, has.union(set(temp)), next_call, end, route, new_total)
-                if from_total < return_total or not bool(return_total):
-                    return_total = from_total
-                    result = from_call
-    elif len(path) < len(flags):
-        return_total = 0
-        while run:
-            new_total = total
-            temp = None
-            for cost in costs:
-                if end in cost:
-                    temp = cost
-                    new_total += costs.pop(cost)
-                    break
-            else:
-                run = False
-            if bool(temp):
-                has = included.copy()
-                route = path.copy()
-                route.append(temp)
-                from_call, from_total = shortest_path(costs.copy(), flags, has.union(set(temp)), next, end, route, new_total)
-                if from_total < return_total or not bool(return_total):
-                    return_total = from_total
-                    result = from_call
-    return result, return_total
+                for cost in costs:
+                    if next in cost and end in cost:
+                        key = cost
+                        new_total += costs.pop(cost)
+                        break
+                else:
+                    run = False
+            if run:
+                new_path = path.copy()
+                new_path.append(key)
+                got_path, got_total = shortest_path(costs.copy(), flags, included.copy().union(set(key)), new_next, end, new_path, new_total)
+                if got_total < return_total or not bool(return_total):
+                    return_total = got_total
+                    return_path = got_path
+    return return_path, return_total
 
 def main():
     WIN.fill(WHITE)
