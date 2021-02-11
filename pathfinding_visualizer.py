@@ -341,7 +341,7 @@ def grow_tree(mode, grid): #Generate maze by removing walls
 
 #costs: a dictionary with key as tuple of connected nodes and value as distance between them
 def shortest_path(costs, flags, visited, next, end, path, distance):
-    if len(path) < flags:
+    if len(path) < flags-1:
         current_node = next
         current_path = path.copy()
         current_distance = distance
@@ -349,30 +349,25 @@ def shortest_path(costs, flags, visited, next, end, path, distance):
         run = True
         while run:
             new_distance = current_distance
-            if len(current_path) < flags-1:
-                for cost in costs:
-                    if current_node in cost and not end in cost:
-                        key = cost
-                        new_distance += costs.pop(key)
-                        next = cost[(cost.index(current_node)+1)%2]
-                        break
-                else:
-                    run = False
+            for cost in costs:
+                if visited.isdisjoint(set(cost)) and current_node in cost and not end in cost:
+                    key = cost
+                    new_distance += costs.pop(key)
+                    next = cost[(cost.index(current_node)+1)%2]
+                    break
             else:
-                for cost in costs:
-                    if current_node in cost and end in cost:
-                        key = cost
-                        new_distance += costs.pop(cost)
-                        break
-                else:
-                    run = False
+                run = False
             if run:
                 new_path = current_path.copy()
                 new_path.append(key)
-                final_path, final_distance = shortest_path(costs.copy(), flags, visited.copy().union(set(key)), next, end, new_path, new_distance)
+                final_path, final_distance = shortest_path(costs.copy(), flags, visited.copy().union({current_node}), next, end, new_path, new_distance)
                 if final_distance < distance or not bool(distance):
                     distance = final_distance
                     path = final_path
+    else:
+        key = (next, end)
+        path.append(key)
+        distance += costs.pop(key)
     return path, distance
 
 def main():
