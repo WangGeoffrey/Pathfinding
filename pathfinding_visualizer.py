@@ -340,40 +340,40 @@ def grow_tree(mode, grid): #Generate maze by removing walls
             grid[x+(x1-x)//2][y+(y1-y)//2].set_default()
 
 #costs: a dictionary with key as tuple of connected nodes and value as distance between them
-def shortest_path(costs, flags, included, next, end, path, total):
-    return_path = path.copy()
-    return_total = total
-    if len(path) < len(flags):
+def shortest_path(costs, flags, visited, next, end, path, distance):
+    if len(path) < flags:
+        current_node = next
+        current_path = path.copy()
+        current_distance = distance
+        distance = 0
         run = True
-        return_total = 0
         while run:
-            new_total = total
-            new_next = None
-            if len(path) < len(flags)-1:
+            new_distance = current_distance
+            if len(current_path) < flags-1:
                 for cost in costs:
-                    if next in cost and not end in cost:
+                    if current_node in cost and not end in cost:
                         key = cost
-                        new_total += costs.pop(key)
-                        new_next = cost[(cost.index(next)+1)%2]
+                        new_distance += costs.pop(key)
+                        next = cost[(cost.index(current_node)+1)%2]
                         break
                 else:
                     run = False
             else:
                 for cost in costs:
-                    if next in cost and end in cost:
+                    if current_node in cost and end in cost:
                         key = cost
-                        new_total += costs.pop(cost)
+                        new_distance += costs.pop(cost)
                         break
                 else:
                     run = False
             if run:
-                new_path = path.copy()
+                new_path = current_path.copy()
                 new_path.append(key)
-                got_path, got_total = shortest_path(costs.copy(), flags, included.copy().union(set(key)), new_next, end, new_path, new_total)
-                if got_total < return_total or not bool(return_total):
-                    return_total = got_total
-                    return_path = got_path
-    return return_path, return_total
+                final_path, final_distance = shortest_path(costs.copy(), flags, visited.copy().union(set(key)), next, end, new_path, new_distance)
+                if final_distance < distance or not bool(distance):
+                    distance = final_distance
+                    path = final_path
+    return path, distance
 
 def main():
     WIN.fill(WHITE)
