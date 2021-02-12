@@ -342,21 +342,11 @@ def grow_tree(mode, grid): #Generate maze by removing walls
 #costs: a dictionary with key as tuple of connected nodes and value as distance between them
 def shortest_path(costs, flags, visited, next, end, path, distance):
     if len(path) < flags:
-        current = (next, path, distance)
+        current = (path, distance)
         distance = 0
-        checked = set()
-        run = True
-        while run:
-            for cost in costs:
-                if visited.isdisjoint(set(cost)) and current[0] in cost and not (cost in checked or end in cost):
-                    key = cost
-                    checked.add(key)
-                    next = cost[(cost.index(current[0])+1)%2]
-                    break
-            else:
-                run = False
-            if run:
-                final_path, final_distance = shortest_path(costs, flags, visited.union({current[0]}), next, end, current[1] + [key], current[2] + costs[key])
+        for key in costs:
+            if visited.isdisjoint(set(key)) and next in key and not end in key:
+                final_path, final_distance = shortest_path(costs, flags, visited.union({next}), key[(key.index(next)+1)%2], end, current[0]+[key], current[1]+costs[key])
                 if final_distance < distance or not bool(distance):
                     distance = final_distance
                     path = final_path
