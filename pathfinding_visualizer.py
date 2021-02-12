@@ -189,6 +189,13 @@ def show_path(came_from, current, grid):
             current.set_path()
         draw_grid(grid)
 
+def get_path(came_from, current, grid):
+    result = []
+    while current in came_from:
+        result.append(current)
+        current = came_from[current]
+    return result
+
 def exit():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -200,10 +207,8 @@ def astar(grid, start, end):
     open = PriorityQueue()
     open.put((0, count, start))
     came_from = {}
-    g_cost = {}
-    g_cost[start] = 0
-    f_cost = {}
-    f_cost[start] = distance(start, end)
+    g_cost = {start: 0}
+    f_cost = {start: distance(start, end)}
     open_hash = {start}
     while not open.empty():
         if exit():
@@ -211,8 +216,7 @@ def astar(grid, start, end):
         current = open.get()[2]
         open_hash.remove(current)
         if current == end:
-            show_path(came_from, current, grid)
-            return True
+            return g_cost[current], get_path(came_from, current, grid)
         current.update_neighbors(grid)
         x1, y1 = current.get_pos()
         for neighbor in current.get_neighbors():
@@ -367,21 +371,30 @@ def main():
     text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, SIDE_BAR//4))
     WIN.blit(text, text_rect)
     pygame.draw.line(WIN, BLACK, (WIDTH, SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, SIDE_BAR//2 - 2), 2)
+    text = font.render('Flags' , True , BLACK)
+    text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, 2*SIDE_BAR + SIDE_BAR//4))
+    WIN.blit(text, text_rect)
+    pygame.draw.line(WIN, BLACK, (WIDTH, 5*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, 5*SIDE_BAR//2 - 2), 2)
+    text = font.render('Maze Gen.' , True , BLACK)
+    text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, 4*SIDE_BAR + SIDE_BAR//4))
+    WIN.blit(text, text_rect)
+    pygame.draw.line(WIN, BLACK, (WIDTH, 9*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, 9*SIDE_BAR//2 - 2), 2)
     buttons = [
         Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'),
         Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'),
-        Button(WIDTH+1, 3*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Add Flag'),
-        Button2(WIDTH+1, 2*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Maze', lambda: maze((ACROSS//2, ACROSS//2), grid)),
-        Button2(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: gen_maze(start, end, grid, flags, True)),
-        Button2(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: gen_maze(start, end, grid, flags, False))
+        Button(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Add Flag'),
+        Button(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Ordered'),
+        Button2(WIDTH+1, 9*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Maze', lambda: maze((ACROSS//2, ACROSS//2), grid)),
+        Button2(WIDTH+1, 5*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: gen_maze(start, end, grid, flags, True)),
+        Button2(WIDTH+1, 11*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: gen_maze(start, end, grid, flags, False))
     ]
     buttons[0].clicked()
-    for button in buttons:
-        button.draw()
+    buttons[3].clicked()
     search = lambda: astar(grid, prev, next)
     change = False
     make_wall = False
     flags = []
+    ordered = True
     running = True
     while running:
         draw_grid(grid)
@@ -394,13 +407,21 @@ def main():
                 if WIDTH <= pos[0]:
                     for button in buttons:
                         if button.get_rect().collidepoint(pos):
+                            if buttons.index(button) == 3:
+                                if not buttons[0].is_selected() and bool(flags):
+                                    continue
+                                ordered = not ordered
                             if buttons.index(button) > 1:
                                 pass
                             elif buttons.index(button) > 0:
                                 buttons[0].clicked()
                                 search = lambda: dijkstra(grid, prev, next)
+                                if buttons[3].is_selected():
+                                    buttons[3].clicked()
                             else:
                                 buttons[1].clicked()
+                                if ordered and not buttons[3].is_selected():
+                                    buttons[3].clicked()
                                 search = lambda: astar(grid, prev, next)
                             button.clicked()
                 change = make_wall = False
@@ -437,21 +458,69 @@ def main():
                         for node in row:
                             if not (node.is_destination() or node.is_wall()):
                                 node.set_default()
-                    flags.append(end)
-                    prev = start
-                    for next in flags:
-                        search()
-                        prev = next
-                    flags.remove(end)
+                    if not buttons[3].is_selected():
+                        prev = start
+                        costs = {}
+                        came_from = {}
+                        for next in flags:
+                            try:
+                                costs[(prev, next)], came_from[(prev, next)] = search()
+                            except: #Path not found
+                                pass
+                        flags.append(end)
+                        for i in range(len(flags)):
+                            prev = flags[i]
+                            for j in range(i+1, len(flags)):
+                                next = flags[j]
+                                try:
+                                    costs[(prev, next)], came_from[(prev, next)] = search()
+                                except: #Path not found
+                                    pass
+                        flags.remove(end)
+                        path, distance = shortest_path(costs, len(flags), set(), start, end, [], 0)
+                        connect = start
+                        for key in path:
+                            if came_from[key][0] != connect:
+                                came_from[key].pop(0)
+                                came_from[key] = reversed(came_from[key])
+                            else:
+                                came_from[key].pop(len(came_from[key])-1)
+                            for node in came_from[key]:
+                                node.set_path()
+                                draw_grid(grid)
+                            else:
+                                connect = node
+                    elif buttons[1].is_selected():
+                        flags.append(end)
+                        prev = start
+                        for next in flags:
+                            search()
+                            prev = next
+                        flags.remove(end)
+                    else:
+                        flags.append(end)
+                        prev = start
+                        for next in flags:
+                            try:
+                                dummy, came_from = search()
+                            except: #Path not found
+                                pass
+                            came_from.pop(0)
+                            for node in reversed(came_from):
+                                node.set_path()
+                                draw_grid(grid)
+                            prev = next
+                        flags.remove(end)
                 elif event.key == pygame.K_c:
                     grid = make_grid(start, end)
                     flags.clear()
+        if not bool(flags) and not buttons[3].is_selected():
+            buttons[3].clicked()
         for button in buttons:
             button.selected()
             if button.get_rect().collidepoint(pos):
                 button.hovered()
             button.draw()
-        pygame.draw.line(WIN, BLACK, (WIDTH, 3*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, 3*SIDE_BAR//2 - 2), 2)
     pygame.quit()
 
 main()
