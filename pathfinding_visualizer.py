@@ -367,18 +367,12 @@ def main():
     end = Node((ACROSS-1, ACROSS-1))
     end.set_end()
     grid = make_grid(start, end)
-    text = font.render('Algorithm' , True , BLACK)
-    text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, SIDE_BAR//4))
-    WIN.blit(text, text_rect)
-    pygame.draw.line(WIN, BLACK, (WIDTH, SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, SIDE_BAR//2 - 2), 2)
-    text = font.render('Flags' , True , BLACK)
-    text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, 2*SIDE_BAR + SIDE_BAR//4))
-    WIN.blit(text, text_rect)
-    pygame.draw.line(WIN, BLACK, (WIDTH, 5*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, 5*SIDE_BAR//2 - 2), 2)
-    text = font.render('Maze Gen.' , True , BLACK)
-    text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, 4*SIDE_BAR + SIDE_BAR//4))
-    WIN.blit(text, text_rect)
-    pygame.draw.line(WIN, BLACK, (WIDTH, 9*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, 9*SIDE_BAR//2 - 2), 2)
+    labels = ('Algorithm', 'Flags', 'Maze Gen.')
+    for i in range(len(labels)):
+        text = font.render(labels[i] , True , BLACK)
+        text_rect = text.get_rect(center=(WIDTH+SIDE_BAR//2, 2*(i)*SIDE_BAR + SIDE_BAR//4))
+        WIN.blit(text, text_rect)
+        pygame.draw.line(WIN, BLACK, (WIDTH, (4*(i+1)-3)*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, (4*(i+1)-3)*SIDE_BAR//2 - 2), 2)
     buttons = [
         Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'),
         Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'),
@@ -462,40 +456,47 @@ def main():
                         prev = start
                         costs = {}
                         came_from = {}
+                        path_exists = True
                         for next in flags:
                             try:
                                 costs[(prev, next)], came_from[(prev, next)] = search()
                             except: #Path not found
-                                pass
-                        flags.append(end)
-                        for i in range(len(flags)):
-                            prev = flags[i]
-                            for j in range(i+1, len(flags)):
-                                next = flags[j]
-                                try:
-                                    costs[(prev, next)], came_from[(prev, next)] = search()
-                                except: #Path not found
-                                    pass
-                        flags.remove(end)
-                        path, distance = shortest_path(costs, len(flags), set(), start, end, [], 0)
-                        connect = start
-                        for key in path:
-                            if came_from[key][0] != connect:
-                                came_from[key].pop(0)
-                                came_from[key] = reversed(came_from[key])
-                            else:
-                                came_from[key].pop(len(came_from[key])-1)
-                            for node in came_from[key]:
-                                node.set_path()
-                                draw_grid(grid)
-                            else:
-                                connect = node
+                                path_exists = False
+                                break
+                        if path_exists:
+                            flags.append(end)
+                            for i in range(len(flags)):
+                                prev = flags[i]
+                                for j in range(i+1, len(flags)):
+                                    next = flags[j]
+                                    try:
+                                        costs[(prev, next)], came_from[(prev, next)] = search()
+                                    except: #Path not found
+                                        path_exists = False
+                                        break
+                            flags.remove(end)
+                        if path_exists:
+                            path, distance = shortest_path(costs, len(flags), set(), start, end, [], 0)
+                            connect = start
+                            for key in path:
+                                if came_from[key][0] != connect:
+                                    came_from[key].pop(0)
+                                    came_from[key] = reversed(came_from[key])
+                                else:
+                                    came_from[key].pop(len(came_from[key])-1)
+                                for node in came_from[key]:
+                                    node.set_path()
+                                    draw_grid(grid)
+                                else:
+                                    connect = node
                     elif buttons[1].is_selected():
                         flags.append(end)
                         prev = start
                         for next in flags:
-                            search()
-                            prev = next
+                            if search():
+                                prev = next
+                            else:
+                                break
                         flags.remove(end)
                     else:
                         flags.append(end)
@@ -503,12 +504,12 @@ def main():
                         for next in flags:
                             try:
                                 dummy, came_from = search()
+                                came_from.pop(0)
+                                for node in reversed(came_from):
+                                    node.set_path()
+                                    draw_grid(grid)
                             except: #Path not found
-                                pass
-                            came_from.pop(0)
-                            for node in reversed(came_from):
-                                node.set_path()
-                                draw_grid(grid)
+                                break
                             prev = next
                         flags.remove(end)
                 elif event.key == pygame.K_c:
