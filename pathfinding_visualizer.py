@@ -84,9 +84,6 @@ class Node:
     def set_closed(self):
         self.color = TURQUOISE
 
-    def put_in_grid(self, grid):
-        grid[self.x_pos][self.y_pos] = self
-
     def update_neighbors(self, grid):
         self.neighbors.clear()
         x, y = self.get_pos()
@@ -94,9 +91,101 @@ class Node:
             x1, y1 = directions[index]
             x2, y2 = directions[(index+1)%4]
             if valid_pos((x+x1, y+y1), grid):
-                self.neighbors.append(grid[x+x1][y+y1])
+                self.neighbors.append(grid.get_node((x+x1, y+y1)))
             if valid_pos((x+x1+x2, y+y1+y2), grid) and (valid_pos((x+x1, y+y1), grid) or valid_pos((x+x2, y+y2), grid)):
-                self.neighbors.append(grid[x+x1+x2][y+y1+y2])
+                self.neighbors.append(grid.get_node((x+x1+x2, y+y1+y2)))
+
+class Grid:
+    def __init__(self):
+        self.grid = []
+        for i in range(ACROSS):
+            self.grid.append([])
+            for j in range(ACROSS):
+                self.grid[i].append(Node((i, j)))
+        self.start = self.grid[0][0]
+        self.end = self.grid[ACROSS-1][ACROSS-1]
+        self.start.set_start()
+        self.end.set_end()
+        self.flags = []
+        self.old = Node((0, 0))
+
+    def get_grid(self):
+        return self.grid
+
+    def get_node(self, pos):
+        x, y = pos
+        return self.grid[x][y]
+
+    def get_start(self):
+        return self.start
+
+    def get_end(self):
+        return self.end
+
+    def get_flags(self):
+        return self.flags
+
+    def add_flag(self, flag):
+        self.flags.append(flag)
+
+    def remove_flag(self, flag):
+        self.flags.remove(flag)
+
+    def move_node(self, move_node):
+        x, y = pos = move_node.get_pos()
+        self.old.change_pos(pos)
+        run = True
+        while run:
+            for event in pygame.event.get():
+                if not pygame.mouse.get_pressed()[0]:
+                    run = False
+                mouse = tuple(elem//(SIZE) for elem in pygame.mouse.get_pos())
+                if mouse != pos:
+                    self.grid[x][y] = self.old
+                    self.old = self.get_node(mouse)
+                    x, y = pos = mouse
+                    self.grid[x][y] = move_node
+                    move_node.change_pos(mouse)
+                    self.draw()
+        self.old.set_default()
+
+    def clear_all(self):
+        for col in self.grid:
+            for node in col:
+                node.set_default()
+        self.start.set_start()
+        self.end.set_end()
+        self.flags.clear()
+
+    def clear_other(self):
+        for col in self.grid:
+            for node in col:
+                if not (node.is_destination() or node.is_wall()):
+                    node.set_default()
+
+    def reset(self):
+        if not self.grid[0][0].is_start():
+            x, y = self.start.get_pos()
+            self.grid[x][y] = self.grid[0][0]
+            self.grid[x][y].change_pos((x, y))
+            self.grid[0][0] = self.start
+            self.start.change_pos((0, 0))
+        if not self.grid[ACROSS-1][ACROSS-1].is_end():
+            x, y = self.end.get_pos()
+            self.grid[x][y] = self.grid[ACROSS-1][ACROSS-1]
+            self.grid[x][y].change_pos((x, y))
+            self.grid[ACROSS-1][ACROSS-1] = self.end
+            self.end.change_pos((ACROSS-1, ACROSS-1))
+        self.clear_all()
+    
+    def draw(self):
+        for col in self.grid:
+            for node in col:
+                node.draw()
+        for number in range(0, WIDTH+1, SIZE):
+            pygame.draw.line(WIN, BLACK, (0, number), (WIDTH, number))
+            pygame.draw.line(WIN, BLACK, (number, 0), (number, WIDTH))
+        pygame.display.update()
 
 class Button: #Toggle button
     def __init__(self, x_pos, y_pos, width, height, text):
@@ -159,37 +248,18 @@ def valid_pos(pos, grid):
     x, y = pos
     result = False
     if 0 <= x < ACROSS and 0 <= y < ACROSS:
-        if not grid[x][y].is_wall():
+        if not grid.get_node(pos).is_wall():
             result = True
     return result
-
-def make_grid(start, end):
-    grid = []
-    for i in range(ACROSS):
-        grid.append([])
-        for j in range(ACROSS):
-            grid[i].append(Node((i, j)))
-    start.put_in_grid(grid)
-    end.put_in_grid(grid)
-    return grid
-
-def draw_grid(grid):
-    for row in grid:
-        for node in row:
-            node.draw()
-    for number in range(0, WIDTH+1, SIZE):
-        pygame.draw.line(WIN, BLACK, (0, number), (WIDTH, number))
-        pygame.draw.line(WIN, BLACK, (number, 0), (number, WIDTH))
-    pygame.display.update()
 
 def show_path(came_from, current, grid):
     while current in came_from:
         current = came_from[current]
         if not current.is_destination():
             current.set_path()
-        draw_grid(grid)
+        grid.draw()
 
-def get_path(came_from, current, grid):
+def get_path(came_from, current):
     result = []
     while current in came_from:
         result.append(current)
@@ -216,7 +286,7 @@ def astar(grid, start, end):
         current = open.get()[2]
         open_hash.remove(current)
         if current == end:
-            return g_cost[current], get_path(came_from, current, grid)
+            return g_cost[current], get_path(came_from, current)
         current.update_neighbors(grid)
         x1, y1 = current.get_pos()
         for neighbor in current.get_neighbors():
@@ -232,7 +302,7 @@ def astar(grid, start, end):
                     open_hash.add(neighbor)
                     if neighbor != end and not (neighbor.is_path() or neighbor.is_destination()):
                         neighbor.set_open()
-        draw_grid(grid)
+        grid.draw()
         if current != start and not (current.is_path() or current.is_destination()):
             current.set_closed()
     return False
@@ -262,13 +332,13 @@ def dijkstra(grid, start, end):
                 came_from[neighbor] = current
                 if neighbor != end and not (neighbor.is_path() or neighbor.is_destination()):
                         neighbor.set_open()
-        draw_grid(grid)
+        grid.draw()
         if current != start and not (current.is_path() or current.is_destination()):
             current.set_closed()
     return False
 
 def maze(pos, grid): #Generate maze by making walls
-    draw_grid(grid)
+    grid.draw()
     x, y = pos
     d = directions.copy()
     while bool(d):
@@ -281,28 +351,13 @@ def maze(pos, grid): #Generate maze by making walls
             if not (valid_pos((new_x, new_y), grid) and valid_pos((new_x+x1, new_y+y1), grid)):
                 break
         else:
-            if not grid[x+x1][y+y1].is_destination():
-                grid[x+x1][y+y1].set_wall()
+            if not grid.get_node((x+x1, y+y1)).is_destination():
+                grid.get_node((x+x1, y+y1)).set_wall()
                 maze((x+x1, y+y1), grid)
 
-def gen_maze(start, end, grid, flags, mode):
-    for col in grid:
-        for node in col:
-            node.set_default()
-    if start.get_pos() != (0, 0):
-        x, y = start.get_pos()
-        start.change_pos((0, 0))
-        start.put_in_grid(grid)
-        grid[x][y] = Node((x, y))
-    if end.get_pos() != (ACROSS-1, ACROSS-1):
-        x, y = end.get_pos()
-        end.change_pos((ACROSS-1, ACROSS-1))
-        end.put_in_grid(grid)
-        grid[x][y] = Node((x, y))
-    flags.clear()
+def gen_maze(grid, mode):
+    grid.reset()
     grow_tree(mode, grid)
-    start.set_start()
-    end.set_end()
 
 def grow_tree(mode, grid): #Generate maze by removing walls
     nodes = {}
@@ -310,24 +365,24 @@ def grow_tree(mode, grid): #Generate maze by removing walls
     for i in range(0, ACROSS):
         for j in range(i, ACROSS):
             if i%2 == 1 or j%2 == 1:
-                grid[i][j].set_wall()
-                grid[j][i].set_wall()
+                grid.get_node((i, j)).set_wall()
+                grid.get_node((j, i)).set_wall()
             else:
-                nodes[grid[i][j]] = {grid[i+v][j+h] for v, h in d if valid_pos((i+v, j+h), grid)}
-                nodes[grid[j][i]] = {grid[j+v][i+h] for v, h in d if valid_pos((j+v, i+h), grid)}
-        draw_grid(grid)
+                nodes[grid.get_node((i, j))] = {grid.get_node((i+v, j+h)) for v, h in d if valid_pos((i+v, j+h), grid)}
+                nodes[grid.get_node((j, i))] = {grid.get_node((j+v, i+h)) for v, h in d if valid_pos((j+v, i+h), grid)}
+        grid.draw()
     if mode:
-        get_node = lambda: check[len(check)-1]
+        next_node = lambda: check[len(check)-1]
     else:
-        get_node = lambda: check[check.index(choice(check))]        #1
+        next_node = lambda: check[check.index(choice(check))]        #1
         # get_node = lambda: check[check.index(set(check).pop())]   #2
     check = [set(nodes.keys()).pop()]
     removed = set()
     while bool(check):
         if exit():
             return False
-        draw_grid(grid)
-        current = get_node()
+        grid.draw()
+        current = next_node()
         neighbors = nodes.get(current)
         neighbors = neighbors.difference(set(check).union(removed))
         if bool(neighbors):
@@ -341,7 +396,7 @@ def grow_tree(mode, grid): #Generate maze by removing walls
             check.append(neighbor)
             x, y = current.get_pos()
             x1, y1 = neighbor.get_pos()
-            grid[x+(x1-x)//2][y+(y1-y)//2].set_default()
+            grid.get_node((x+(x1-x)//2, y+(y1-y)//2)).set_default()
 
 #costs: a dictionary with key as tuple of connected nodes and value as distance between them
 def shortest_path(costs, flags, visited, next, end, path, distance):
@@ -362,11 +417,7 @@ def shortest_path(costs, flags, visited, next, end, path, distance):
 
 def main():
     WIN.fill(WHITE)
-    start = Node((0, 0))
-    start.set_start()
-    end = Node((ACROSS-1, ACROSS-1))
-    end.set_end()
-    grid = make_grid(start, end)
+    grid = Grid()
     labels = ('Algorithm', 'Flags', 'Maze Gen.')
     for i in range(len(labels)):
         text = font.render(labels[i] , True , BLACK)
@@ -379,8 +430,8 @@ def main():
         Button(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Add Flag'),
         Button(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Ordered'),
         Button2(WIDTH+1, 9*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Maze', lambda: maze((ACROSS//2, ACROSS//2), grid)),
-        Button2(WIDTH+1, 5*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: gen_maze(start, end, grid, flags, True)),
-        Button2(WIDTH+1, 11*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: gen_maze(start, end, grid, flags, False))
+        Button2(WIDTH+1, 5*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: gen_maze(grid, True)),
+        Button2(WIDTH+1, 11*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: gen_maze(grid, False))
     ]
     buttons[0].clicked()
     buttons[3].clicked()
@@ -391,7 +442,7 @@ def main():
     ordered = True
     running = True
     while running:
-        draw_grid(grid)
+        grid.draw()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -402,7 +453,7 @@ def main():
                     for button in buttons:
                         if button.get_rect().collidepoint(pos):
                             if buttons.index(button) == 3:
-                                if not buttons[0].is_selected() and bool(flags):
+                                if not buttons[0].is_selected() and bool(grid.get_flags()):
                                     continue
                                 ordered = not ordered
                             if buttons.index(button) > 1:
@@ -421,39 +472,34 @@ def main():
                 change = make_wall = False
             if pygame.mouse.get_pressed()[0]:
                 if pos[0] < WIDTH:
-                    current = grid[x][y]
+                    current = grid.get_node((x, y))
                     if current.is_destination():
                         if not (change or buttons[2].is_selected() or make_wall):
                             move_node = current
-                            prev_node = Node(current.get_pos())
                             change = True
                     elif change:
-                        prev_node.put_in_grid(grid)
-                        prev_node = current
-                        move_node.change_pos(current.get_pos())
-                        move_node.put_in_grid(grid)
+                        grid.move_node(move_node)
+                        change = False
                     elif buttons[2].is_selected():
                         current.set_flag()
-                        flags.append(current)
+                        grid.add_flag(current)
                         buttons[2].clicked()
                     else:
                         make_wall = True
                         current.set_wall()
             elif pygame.mouse.get_pressed()[2]:
                 if pos[0] < WIDTH:
-                    current = grid[x][y]
+                    current = grid.get_node((x, y))
                     if not (current.is_start() or current.is_end()):
                         if current.is_flag():
-                            flags.remove(current)
+                            grid.remove_flag(current)
                         current.set_default()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    for row in grid:
-                        for node in row:
-                            if not (node.is_destination() or node.is_wall()):
-                                node.set_default()
+                    grid.clear_other()
+                    flags = grid.get_flags()
                     if not buttons[3].is_selected():
-                        prev = start
+                        prev = grid.get_start()
                         costs = {}
                         came_from = {}
                         path_exists = True
@@ -464,7 +510,7 @@ def main():
                                 path_exists = False
                                 break
                         if path_exists:
-                            flags.append(end)
+                            flags.append(grid.get_end())
                             for i in range(len(flags)):
                                 prev = flags[i]
                                 for j in range(i+1, len(flags)):
@@ -474,10 +520,10 @@ def main():
                                     except: #Path not found
                                         path_exists = False
                                         break
-                            flags.remove(end)
+                            flags.remove(grid.get_end())
                         if path_exists:
-                            path, distance = shortest_path(costs, len(flags), set(), start, end, [], 0)
-                            connect = start
+                            path, distance = shortest_path(costs, len(flags), set(), grid.get_start(), grid.get_end(), [], 0)
+                            connect = grid.get_start()
                             for key in path:
                                 if came_from[key][0] != connect:
                                     came_from[key].pop(0)
@@ -486,35 +532,34 @@ def main():
                                     came_from[key].pop(len(came_from[key])-1)
                                 for node in came_from[key]:
                                     node.set_path()
-                                    draw_grid(grid)
+                                    grid.draw()
                                 else:
                                     connect = node
                     elif buttons[1].is_selected():
-                        flags.append(end)
-                        prev = start
+                        flags.append(grid.get_end())
+                        prev = grid.get_start()
                         for next in flags:
                             if search():
                                 prev = next
                             else:
                                 break
-                        flags.remove(end)
+                        flags.remove(grid.get_end())
                     else:
-                        flags.append(end)
-                        prev = start
+                        flags.append(grid.get_end())
+                        prev = grid.get_start()
                         for next in flags:
                             try:
                                 dummy, came_from = search()
                                 came_from.pop(0)
                                 for node in reversed(came_from):
                                     node.set_path()
-                                    draw_grid(grid)
+                                    grid.draw()
                             except: #Path not found
                                 break
                             prev = next
-                        flags.remove(end)
+                        flags.remove(grid.get_end())
                 elif event.key == pygame.K_c:
-                    grid = make_grid(start, end)
-                    flags.clear()
+                    grid.clear_all()
         if not bool(flags) and not buttons[3].is_selected():
             buttons[3].clicked()
         for button in buttons:
