@@ -84,15 +84,24 @@ class Node:
     def set_closed(self):
         self.color = TURQUOISE
 
+    def distance(self, other):
+        x, y = other.get_pos()
+        x_dist = abs(self.x_pos - x)
+        y_dist = abs(self.y_pos - y)
+        if x_dist <= y_dist:
+            return x_dist*14 + (y_dist - x_dist)*10
+        else:
+            return y_dist*14 + (x_dist - y_dist)*10
+
     def update_neighbors(self, grid):
         self.neighbors.clear()
         x, y = self.get_pos()
         for index in range(len(directions)):
             x1, y1 = directions[index]
             x2, y2 = directions[(index+1)%4]
-            if valid_pos((x+x1, y+y1), grid):
+            if grid.valid_pos((x+x1, y+y1)):
                 self.neighbors.append(grid.get_node((x+x1, y+y1)))
-            if valid_pos((x+x1+x2, y+y1+y2), grid) and (valid_pos((x+x1, y+y1), grid) or valid_pos((x+x2, y+y2), grid)):
+            if grid.valid_pos((x+x1+x2, y+y1+y2)) and (grid.valid_pos((x+x1, y+y1)) or grid.valid_pos((x+x2, y+y2))):
                 self.neighbors.append(grid.get_node((x+x1+x2, y+y1+y2)))
 
 class Grid:
@@ -130,6 +139,14 @@ class Grid:
 
     def remove_flag(self, flag):
         self.flags.remove(flag)
+
+    def valid_pos(self, pos):
+        x, y = pos
+        result = False
+        if 0 <= x < ACROSS and 0 <= y < ACROSS:
+            if not self.get_node(pos).is_wall():
+                result = True
+        return result
 
     def move_node(self, move_node):
         x, y = pos = move_node.get_pos()
@@ -234,24 +251,6 @@ class Button2(Button): #Execute button
     def selected(self):
         self.color = WHITE
 
-def distance(current, end):
-    x1, y1 = current.get_pos()
-    x2, y2 = end.get_pos()
-    x_dist = abs(x1 - x2)
-    y_dist = abs(y1 - y2)
-    if x_dist <= y_dist:
-        return x_dist*14 + (y_dist - x_dist)*10
-    else:
-        return y_dist*14 + (x_dist - y_dist)*10
-
-def valid_pos(pos, grid):
-    x, y = pos
-    result = False
-    if 0 <= x < ACROSS and 0 <= y < ACROSS:
-        if not grid.get_node(pos).is_wall():
-            result = True
-    return result
-
 def show_path(came_from, current, grid):
     while current in came_from:
         current = came_from[current]
@@ -278,7 +277,7 @@ def astar(grid, start, end):
     open.put((0, count, start))
     came_from = {}
     g_cost = {start: 0}
-    f_cost = {start: distance(start, end)}
+    f_cost = {start: start.distance(end)}
     open_hash = {start}
     while not open.empty():
         if exit():
@@ -294,7 +293,7 @@ def astar(grid, start, end):
             new_g_cost = g_cost[current] + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
             if neighbor not in g_cost or new_g_cost < g_cost[neighbor]:
                 g_cost[neighbor] = new_g_cost
-                f_cost[neighbor] = g_cost[neighbor] + distance(neighbor, end)
+                f_cost[neighbor] = g_cost[neighbor] + neighbor.distance(end)
                 came_from[neighbor] = current
                 if not neighbor in open_hash:
                     count += 1
@@ -348,18 +347,15 @@ def maze(pos, grid): #Generate maze by making walls
         for i in range(-1, 2):
             new_x = x+x1+i*abs(y1)
             new_y = y+y1+i*abs(x1)
-            if not (valid_pos((new_x, new_y), grid) and valid_pos((new_x+x1, new_y+y1), grid)):
+            if not (grid.valid_pos((new_x, new_y)) and grid.valid_pos((new_x+x1, new_y+y1))):
                 break
         else:
             if not grid.get_node((x+x1, y+y1)).is_destination():
                 grid.get_node((x+x1, y+y1)).set_wall()
                 maze((x+x1, y+y1), grid)
 
-def gen_maze(grid, mode):
+def grow_tree(grid, mode): #Generate maze by removing walls
     grid.reset()
-    grow_tree(mode, grid)
-
-def grow_tree(mode, grid): #Generate maze by removing walls
     nodes = {}
     d = {(x*2, y*2) for x, y in directions}
     for i in range(0, ACROSS):
@@ -368,8 +364,8 @@ def grow_tree(mode, grid): #Generate maze by removing walls
                 grid.get_node((i, j)).set_wall()
                 grid.get_node((j, i)).set_wall()
             else:
-                nodes[grid.get_node((i, j))] = {grid.get_node((i+v, j+h)) for v, h in d if valid_pos((i+v, j+h), grid)}
-                nodes[grid.get_node((j, i))] = {grid.get_node((j+v, i+h)) for v, h in d if valid_pos((j+v, i+h), grid)}
+                nodes[grid.get_node((i, j))] = {grid.get_node((i+v, j+h)) for v, h in d if grid.valid_pos((i+v, j+h))}
+                nodes[grid.get_node((j, i))] = {grid.get_node((j+v, i+h)) for v, h in d if grid.valid_pos((j+v, i+h))}
         grid.draw()
     if mode:
         next_node = lambda: check[len(check)-1]
@@ -430,8 +426,8 @@ def main():
         Button(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Add Flag'),
         Button(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Ordered'),
         Button2(WIDTH+1, 9*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Maze', lambda: maze((ACROSS//2, ACROSS//2), grid)),
-        Button2(WIDTH+1, 5*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: gen_maze(grid, True)),
-        Button2(WIDTH+1, 11*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: gen_maze(grid, False))
+        Button2(WIDTH+1, 5*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: grow_tree(grid, True)),
+        Button2(WIDTH+1, 11*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: grow_tree(grid, False))
     ]
     buttons[0].clicked()
     buttons[3].clicked()
