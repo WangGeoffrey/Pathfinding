@@ -134,6 +134,9 @@ class Grid:
     def get_flags(self):
         return self.flags
 
+    def get_flags_end(self):
+        return self.flags + [self.end]
+
     def add_flag(self, flag):
         self.flags.append(flag)
 
@@ -434,7 +437,6 @@ def main():
     search = lambda: astar(grid, prev, next)
     change = False
     make_wall = False
-    flags = []
     ordered = True
     running = True
     while running:
@@ -493,20 +495,19 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     grid.clear_other()
-                    flags = grid.get_flags()
                     if not buttons[3].is_selected():
                         prev = grid.get_start()
                         costs = {}
                         came_from = {}
                         path_exists = True
-                        for next in flags:
+                        for next in grid.get_flags():
                             try:
                                 costs[(prev, next)], came_from[(prev, next)] = search()
                             except: #Path not found
                                 path_exists = False
                                 break
                         if path_exists:
-                            flags.append(grid.get_end())
+                            flags = grid.get_flags_end()
                             for i in range(len(flags)):
                                 prev = flags[i]
                                 for j in range(i+1, len(flags)):
@@ -516,9 +517,8 @@ def main():
                                     except: #Path not found
                                         path_exists = False
                                         break
-                            flags.remove(grid.get_end())
                         if path_exists:
-                            path, distance = shortest_path(costs, len(flags), set(), grid.get_start(), grid.get_end(), [], 0)
+                            path, distance = shortest_path(costs, len(grid.get_flags()), set(), grid.get_start(), grid.get_end(), [], 0)
                             connect = grid.get_start()
                             for key in path:
                                 if came_from[key][0] != connect:
@@ -532,18 +532,15 @@ def main():
                                 else:
                                     connect = node
                     elif buttons[1].is_selected():
-                        flags.append(grid.get_end())
                         prev = grid.get_start()
-                        for next in flags:
+                        for next in grid.get_flags_end():
                             if search():
                                 prev = next
                             else:
                                 break
-                        flags.remove(grid.get_end())
                     else:
-                        flags.append(grid.get_end())
                         prev = grid.get_start()
-                        for next in flags:
+                        for next in grid.get_flags_end():
                             try:
                                 dummy, came_from = search()
                                 came_from.pop(0)
@@ -553,10 +550,9 @@ def main():
                             except: #Path not found
                                 break
                             prev = next
-                        flags.remove(grid.get_end())
                 elif event.key == pygame.K_c:
                     grid.clear_all()
-        if not bool(flags) and not buttons[3].is_selected():
+        if not bool(grid.get_flags()) and not buttons[3].is_selected():
             buttons[3].clicked()
         for button in buttons:
             button.selected()
