@@ -161,12 +161,14 @@ class Grid:
                     run = False
                 mouse = tuple(elem//(SIZE) for elem in pygame.mouse.get_pos())
                 if mouse != pos:
-                    self.grid[x][y] = self.old
-                    self.old = self.get_node(mouse)
-                    x, y = pos = mouse
-                    self.grid[x][y] = move_node
-                    move_node.change_pos(mouse)
-                    self.draw()
+                    if mouse[0] < ACROSS:
+                        if not self.get_node(mouse).is_destination():
+                            self.grid[x][y] = self.old
+                            self.old = self.get_node(mouse)
+                            x, y = pos = mouse
+                            self.grid[x][y] = move_node
+                            move_node.change_pos(mouse)
+                            self.draw()
         self.old.set_default()
 
     def clear_all(self):
