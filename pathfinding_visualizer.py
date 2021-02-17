@@ -256,13 +256,6 @@ class Button2(Button): #Execute button
     def selected(self):
         self.color = WHITE
 
-def show_path(came_from, current, grid):
-    while current in came_from:
-        current = came_from[current]
-        if not current.is_destination():
-            current.set_path()
-        grid.draw()
-
 def get_path(came_from, current):
     result = []
     while current in came_from:
@@ -322,8 +315,7 @@ def dijkstra(grid, start, end):
             return False
         current_cost, dummy, current = open.get()
         if current == end:
-            show_path(came_from, current, grid)
-            return True
+            return current_cost, get_path(came_from, current)
         current.update_neighbors(grid)
         x1, y1 = current.get_pos()
         for neighbor in current.get_neighbors():
@@ -439,7 +431,6 @@ def main():
     search = lambda: astar(grid, prev, next)
     change = False
     make_wall = False
-    ordered = True
     running = True
     while running:
         grid.draw()
@@ -453,20 +444,15 @@ def main():
                     for button in buttons:
                         if button.get_rect().collidepoint(pos):
                             if buttons.index(button) == 3:
-                                if not buttons[0].is_selected() and bool(grid.get_flags()):
+                                if not bool(grid.get_flags()):
                                     continue
-                                ordered = not ordered
                             if buttons.index(button) > 1:
                                 pass
                             elif buttons.index(button) > 0:
                                 buttons[0].clicked()
                                 search = lambda: dijkstra(grid, prev, next)
-                                if buttons[3].is_selected():
-                                    buttons[3].clicked()
                             else:
                                 buttons[1].clicked()
-                                if ordered and not buttons[3].is_selected():
-                                    buttons[3].clicked()
                                 search = lambda: astar(grid, prev, next)
                             button.clicked()
                 change = make_wall = False
@@ -533,13 +519,6 @@ def main():
                                     grid.draw()
                                 else:
                                     connect = node
-                    elif buttons[1].is_selected():
-                        prev = grid.get_start()
-                        for next in grid.get_flags_end():
-                            if search():
-                                prev = next
-                            else:
-                                break
                     else:
                         prev = grid.get_start()
                         for next in grid.get_flags_end():
