@@ -257,10 +257,10 @@ class Button2(Button): #Execute button
         self.color = WHITE
 
 def get_path(came_from, current):
-    result = []
+    result = [current]
     while current in came_from:
-        result.append(current)
         current = came_from[current]
+        result.append(current)
     return result
 
 def exit():
@@ -510,13 +510,11 @@ def main():
                             connect = grid.get_start()
                             for key in path:
                                 if came_from[key][0] != connect:
-                                    came_from[key].pop(0)
                                     came_from[key] = reversed(came_from[key])
-                                else:
-                                    came_from[key].pop(len(came_from[key])-1)
                                 for node in came_from[key]:
-                                    node.set_path()
-                                    grid.draw()
+                                    if not node.is_destination():
+                                        node.set_path()
+                                        grid.draw()
                                 else:
                                     connect = node
                     else:
@@ -524,10 +522,10 @@ def main():
                         for next in grid.get_flags_end():
                             try:
                                 dummy, came_from = search()
-                                came_from.pop(0)
                                 for node in reversed(came_from):
-                                    node.set_path()
-                                    grid.draw()
+                                    if not node.is_destination():
+                                        node.set_path()
+                                        grid.draw()
                             except: #Path not found
                                 break
                             prev = next
