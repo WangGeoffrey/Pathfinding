@@ -188,16 +188,14 @@ class Grid:
     def reset(self):
         if not self.grid[0][0].is_start():
             x, y = self.start.get_pos()
-            self.grid[x][y] = self.grid[0][0]
-            self.grid[x][y].change_pos((x, y))
-            self.grid[0][0] = self.start
-            self.start.change_pos((0, 0))
+            self.grid[x][y].set_default()
+            self.start = self.grid[0][0]
+            self.start.set_start()
         if not self.grid[ACROSS-1][ACROSS-1].is_end():
             x, y = self.end.get_pos()
-            self.grid[x][y] = self.grid[ACROSS-1][ACROSS-1]
-            self.grid[x][y].change_pos((x, y))
-            self.grid[ACROSS-1][ACROSS-1] = self.end
-            self.end.change_pos((ACROSS-1, ACROSS-1))
+            self.grid[x][y].set_default()
+            self.end = self.grid[ACROSS-1][ACROSS-1]
+            self.end.set_end()
         self.clear_all()
     
     def draw(self):
@@ -268,6 +266,9 @@ def exit():
         if event.type == pygame.QUIT:
             pygame.quit()
             return True
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_BACKSPACE:
+                return True
 
 def astar(grid, start, end):
     count = 0
@@ -289,7 +290,7 @@ def astar(grid, start, end):
         for neighbor in current.get_neighbors():
             x2, y2 = neighbor.get_pos()
             new_g_cost = g_cost[current] + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
-            if neighbor not in g_cost or new_g_cost < g_cost[neighbor]:
+            if not neighbor in g_cost or new_g_cost < g_cost[neighbor]:
                 g_cost[neighbor] = new_g_cost
                 f_cost[neighbor] = g_cost[neighbor] + neighbor.distance(end)
                 came_from[neighbor] = current
@@ -297,10 +298,10 @@ def astar(grid, start, end):
                     count += 1
                     open.put((f_cost[neighbor], count, neighbor))
                     open_hash.add(neighbor)
-                    if neighbor != end and not (neighbor.is_path() or neighbor.is_destination()):
+                    if not (neighbor.is_path() or neighbor.is_destination()):
                         neighbor.set_open()
         grid.draw()
-        if current != start and not (current.is_path() or current.is_destination()):
+        if not (current.is_path() or current.is_destination()):
             current.set_closed()
     return False
 
@@ -319,17 +320,17 @@ def dijkstra(grid, start, end):
         current.update_neighbors(grid)
         x1, y1 = current.get_pos()
         for neighbor in current.get_neighbors():
-            if neighbor not in open_hash:
+            if not neighbor in open_hash:
                 x2, y2 = neighbor.get_pos()
                 new_cost = current_cost + 10 + 4*((abs(x1 - x2) + abs(y1 - y2) + 1)%2)
                 count += 1
                 open.put((new_cost, count, neighbor))
                 open_hash.add(neighbor)
                 came_from[neighbor] = current
-                if neighbor != end and not (neighbor.is_path() or neighbor.is_destination()):
+                if not (neighbor.is_path() or neighbor.is_destination()):
                         neighbor.set_open()
         grid.draw()
-        if current != start and not (current.is_path() or current.is_destination()):
+        if not (current.is_path() or current.is_destination()):
             current.set_closed()
     return False
 
@@ -429,7 +430,6 @@ def main():
     buttons[0].clicked()
     buttons[3].clicked()
     search = lambda: astar(grid, prev, next)
-    change = False
     make_wall = False
     running = True
     while running:
@@ -455,17 +455,13 @@ def main():
                                 buttons[1].clicked()
                                 search = lambda: astar(grid, prev, next)
                             button.clicked()
-                change = make_wall = False
+                make_wall = False
             if pygame.mouse.get_pressed()[0]:
                 if pos[0] < WIDTH:
                     current = grid.get_node((x, y))
                     if current.is_destination():
-                        if not (change or buttons[2].is_selected() or make_wall):
-                            move_node = current
-                            change = True
-                    elif change:
-                        grid.move_node(move_node)
-                        change = False
+                        if not (make_wall or buttons[2].is_selected()):
+                            grid.move_node(current)
                     elif buttons[2].is_selected():
                         current.set_flag()
                         grid.add_flag(current)
@@ -531,7 +527,7 @@ def main():
                             prev = next
                 elif event.key == pygame.K_c:
                     grid.clear_all()
-        if not bool(grid.get_flags()) and not buttons[3].is_selected():
+        if not (bool(grid.get_flags()) or buttons[3].is_selected()):
             buttons[3].clicked()
         for button in buttons:
             button.selected()
