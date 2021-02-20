@@ -213,7 +213,6 @@ class Button: #Toggle button
         self.rect = pygame.Rect(x_pos, y_pos, width, height)
         self.text = font.render(text, True, BLACK)
         self.text_rect = self.text.get_rect(center=(x_pos + width//2, y_pos + height//2))
-        self.toggle = False
 
     def get_rect(self):
         return self.rect
@@ -222,37 +221,45 @@ class Button: #Toggle button
         pygame.draw.rect(WIN, self.color, self.rect)
         WIN.blit(self.text, self.text_rect)
 
-    def hovered(self):
+    def clear(self):
         if self.color != GREY:
+            self.color = WHITE
+
+    def hovered(self):
+        if self.color == WHITE:
             self.color = LIGHTGREY
 
-    def clicked(self):
-        self.toggle = not self.toggle
+    def select(self):
+        self.color = GREY
+
+    def deselect(self):
+        self.color = WHITE
+
+    def click(self):
+        if self.color == GREY:
+            self.deselect()
+        else:
+            self.select()
 
     def is_selected(self):
-        return self.toggle
-    
-    def selected(self):
-        if self.toggle:
-            self.color = GREY
-        else:
-            self.color = WHITE
+        return self.color == GREY
 
 class Button2(Button): #Execute button
     def __init__(self, x_pos, y_pos, width, height, text, function):
-        self.color = WHITE
-        self.rect = pygame.Rect(x_pos, y_pos, width, height)
-        self.text = font.render(text, True, BLACK)
-        self.text_rect = self.text.get_rect(center=(x_pos + width//2, y_pos + height//2))
+        super(Button2, self).__init__(x_pos, y_pos, width, height, text)
         self.execute = function
 
-    def clicked(self):
+    def click(self):
         self.color = GREY
         self.draw()
         self.execute()
-
-    def selected(self):
         self.color = WHITE
+
+class Button3(Button2): #Relational button
+    def click(self):
+        self.color = GREY
+        self.draw()
+        self.execute()
 
 def get_path(came_from, current):
     result = [current]
@@ -419,17 +426,15 @@ def main():
         WIN.blit(text, text_rect)
         pygame.draw.line(WIN, BLACK, (WIDTH, (4*(i+1)-3)*SIDE_BAR//2 - 2), (WIDTH+SIDE_BAR, (4*(i+1)-3)*SIDE_BAR//2 - 2), 2)
     buttons = [
-        Button(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*'),
-        Button(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra'),
+        Button3(WIDTH+1, SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'A*', lambda: buttons[1].deselect()),
+        Button3(WIDTH+1, SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Dijkstra', lambda: buttons[0].deselect()),
         Button(WIDTH+1, 5*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Add Flag'),
-        Button(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Ordered'),
+        Button(WIDTH+1, 3*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Shortest Path'),
         Button2(WIDTH+1, 9*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Maze', lambda: maze((ACROSS//2, ACROSS//2), grid)),
         Button2(WIDTH+1, 5*SIDE_BAR, SIDE_BAR, SIDE_BAR//2, 'Recursive', lambda: grow_tree(grid, True)),
         Button2(WIDTH+1, 11*SIDE_BAR//2, SIDE_BAR, SIDE_BAR//2, 'Prim\'s', lambda: grow_tree(grid, False))
     ]
-    buttons[0].clicked()
-    buttons[3].clicked()
-    search = lambda: astar(grid, prev, next)
+    buttons[0].select()
     make_wall = False
     running = True
     while running:
@@ -446,15 +451,7 @@ def main():
                             if buttons.index(button) == 3:
                                 if not bool(grid.get_flags()):
                                     continue
-                            if buttons.index(button) > 1:
-                                pass
-                            elif buttons.index(button) > 0:
-                                buttons[0].clicked()
-                                search = lambda: dijkstra(grid, prev, next)
-                            else:
-                                buttons[1].clicked()
-                                search = lambda: astar(grid, prev, next)
-                            button.clicked()
+                            button.click()
                 make_wall = False
             if pygame.mouse.get_pressed()[0]:
                 if pos[0] < WIDTH:
@@ -465,7 +462,7 @@ def main():
                     elif buttons[2].is_selected():
                         current.set_flag()
                         grid.add_flag(current)
-                        buttons[2].clicked()
+                        buttons[2].deselect()
                     else:
                         make_wall = True
                         current.set_wall()
@@ -479,7 +476,11 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     grid.clear_other()
-                    if not buttons[3].is_selected():
+                    if buttons[0].is_selected():
+                        search = lambda: astar(grid, prev, next)
+                    else:
+                        search = lambda: dijkstra(grid, prev, next)
+                    if buttons[3].is_selected():
                         prev = grid.get_start()
                         costs = {}
                         came_from = {}
@@ -527,10 +528,11 @@ def main():
                             prev = next
                 elif event.key == pygame.K_c:
                     grid.clear_all()
-        if not (bool(grid.get_flags()) or buttons[3].is_selected()):
-            buttons[3].clicked()
+        if not (bool(grid.get_flags())):
+            buttons[3].deselect()
+        pos = pygame.mouse.get_pos()
         for button in buttons:
-            button.selected()
+            button.clear()
             if button.get_rect().collidepoint(pos):
                 button.hovered()
             button.draw()
