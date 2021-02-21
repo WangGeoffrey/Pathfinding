@@ -240,6 +240,7 @@ class Button: #Toggle button
             self.deselect()
         else:
             self.select()
+        return False
 
     def is_selected(self):
         return self.color == GREY
@@ -252,14 +253,15 @@ class Button2(Button): #Execute button
     def click(self):
         self.color = GREY
         self.draw()
-        self.execute()
         self.color = WHITE
-
+        return self.execute()
+        
 class Button3(Button2): #Relational button
     def click(self):
         self.color = GREY
         self.draw()
         self.execute()
+        return False
 
 def get_path(came_from, current):
     result = [current]
@@ -271,11 +273,11 @@ def get_path(came_from, current):
 def exit():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            pygame.quit()
-            return True
+            return 1
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_BACKSPACE:
-                return True
+                return 2
+    return 0
 
 def astar(grid, start, end):
     count = 0
@@ -286,8 +288,9 @@ def astar(grid, start, end):
     f_cost = {start: start.distance(end)}
     open_hash = {start}
     while not open.empty():
-        if exit():
-            return False
+        escape = exit()
+        if escape:
+            return escape
         current = open.get()[2]
         open_hash.remove(current)
         if current == end:
@@ -319,8 +322,9 @@ def dijkstra(grid, start, end):
     open_hash = {start}
     came_from = {}
     while not open.empty():
-        if exit():
-            return False
+        escape = exit()
+        if escape:
+            return escape
         current_cost, dummy, current = open.get()
         if current == end:
             return current_cost, get_path(came_from, current)
@@ -346,8 +350,9 @@ def maze(pos, grid): #Generate maze by making walls
     x, y = pos
     d = directions.copy()
     while bool(d):
-        if exit():
-            return False
+        escape = exit()
+        if escape:
+            return escape
         x1, y1 = d.pop(d.index(choice(d)))
         for i in range(-1, 2):
             new_x = x+x1+i*abs(y1)
@@ -357,7 +362,10 @@ def maze(pos, grid): #Generate maze by making walls
         else:
             if not grid.get_node((x+x1, y+y1)).is_destination():
                 grid.get_node((x+x1, y+y1)).set_wall()
-                maze((x+x1, y+y1), grid)
+                stop = maze((x+x1, y+y1), grid)
+                if stop:
+                    return stop
+    return False
 
 def grow_tree(grid, mode): #Generate maze by removing walls
     grid.reset()
@@ -380,8 +388,9 @@ def grow_tree(grid, mode): #Generate maze by removing walls
     check = [set(nodes.keys()).pop()]
     removed = set()
     while bool(check):
-        if exit():
-            return False
+        escape = exit()
+        if escape:
+            return escape
         grid.draw()
         current = next_node()
         neighbors = nodes.get(current)
@@ -398,6 +407,7 @@ def grow_tree(grid, mode): #Generate maze by removing walls
             x, y = current.get_pos()
             x1, y1 = neighbor.get_pos()
             grid.get_node((x+(x1-x)//2, y+(y1-y)//2)).set_default()
+    return False
 
 #costs: a dictionary with key as tuple of connected nodes and value as distance between them
 def shortest_path(costs, flags, visited, next, end, path, distance):
@@ -451,7 +461,7 @@ def main():
                             if buttons.index(button) == 3:
                                 if not bool(grid.get_flags()):
                                     continue
-                            button.click()
+                            running = bool(button.click()-1)
                 make_wall = False
             if pygame.mouse.get_pressed()[0]:
                 if pos[0] < WIDTH:
@@ -486,9 +496,11 @@ def main():
                         came_from = {}
                         path_exists = True
                         for next in grid.get_flags():
+                            temp = search()
                             try:
-                                costs[(prev, next)], came_from[(prev, next)] = search()
+                                costs[(prev, next)], came_from[(prev, next)] = temp
                             except: #Path not found
+                                running = bool(temp-1)
                                 path_exists = False
                                 break
                         if path_exists:
@@ -497,9 +509,11 @@ def main():
                                 prev = flags[i]
                                 for j in range(i+1, len(flags)):
                                     next = flags[j]
+                                    temp = search()
                                     try:
-                                        costs[(prev, next)], came_from[(prev, next)] = search()
+                                        costs[(prev, next)], came_from[(prev, next)] = temp
                                     except: #Path not found
+                                        running = bool(temp-1)
                                         path_exists = False
                                         break
                         if path_exists:
@@ -518,11 +532,15 @@ def main():
                         prev = grid.get_start()
                         for next in grid.get_flags_end():
                             try:
-                                dummy, came_from = search()
-                                for node in reversed(came_from):
-                                    if not node.is_destination():
-                                        node.set_path()
-                                        grid.draw()
+                                temp = search()
+                                try:
+                                    came_from = temp[1]
+                                    for node in reversed(came_from):
+                                        if not node.is_destination():
+                                            node.set_path()
+                                            grid.draw()
+                                except:
+                                    running = bool(temp-1)
                             except: #Path not found
                                 break
                             prev = next
