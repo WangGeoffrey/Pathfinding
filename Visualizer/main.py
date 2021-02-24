@@ -47,7 +47,7 @@ def main():
                     for button in buttons:
                         if button.get_rect().collidepoint(pos):
                             if buttons.index(button) == 3:
-                                if not bool(grid.get_flags()):
+                                if len(grid.get_flags()) < 2:
                                     continue
                             running = bool(button.click()-1)
                 make_wall = False
