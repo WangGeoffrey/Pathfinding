@@ -1,8 +1,10 @@
 import pygame
+import settings
 from queue import PriorityQueue
 from random import choice
 
 directions = [(0, -1), (1, 0), (0, 1), (-1, 0)] #[up, right, down, left]
+ACROSS = settings.ACROSS
 
 def exit():
     for event in pygame.event.get():
